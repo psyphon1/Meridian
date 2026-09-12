@@ -109,3 +109,20 @@
 
 - [ ] Push to `origin/main` (was interrupted by credential-helper fix; GCM stale account resolved)
 
+
+
+---
+
+## Entry 4 — 2026-09-12: Scaffold full project structure
+
+**Performed by:** Cline (agent) with Chinmay Duse (psyphon1)
+
+### Done
+
+1. Added `.gitkeep` placeholders to all 54 empty directories matching `docs/design/Meridian_PROJECT_STRUCTURE.md` §1: `apps/{api,worker,web,github-app}`, `packages/*` (13), `services/*` (5), `infra/{terraform/{modules,environments/{dev,staging,production}},kubernetes/{base,overlays},docker,sandbox}`, `db/{migrations,seeds,schema}`, `prompts/*` (4), `evals/*` (5), `tests/*` (5), `scripts/*` (5), `.github/{workflows,ISSUE_TEMPLATE}`.
+2. Committed as `chore: scaffold full monorepo project structure with .gitkeep placeholders` and pushed to `origin/main`.
+
+### Notes
+
+- Root scaffold files (`Makefile`, `pyproject.toml`, `package.json`, `pnpm-workspace.yaml`, `docker-compose.yml`) exist and are tracked, intentionally empty pending Phase 1.
+- Git doesn't track empty directories — `.gitkeep` files make the skeleton visible on GitHub; remove each as real content lands.
