@@ -195,4 +195,22 @@
 - [ ] Phase 1 build: GitHub App + OAuth + FastAPI + PostgreSQL + Redis Streams + basic review publishing
 - [ ] ADR-006+ as architecture decisions are made
 
+---
+
+## Entry 8 — 2026-09-13: Root README expanded to industry-standard project README
+
+**Performed by:** Cline (agent) with Chinmay Duse (psyphon1)
+
+### Done
+
+1. **Rewrote `README.md`** from a ~43-line stub into a complete, industry-standard open-source project README (244 lines), drawing every fact from the authoritative docs (PRD, SDD, TRD, ARCHITECTURE, PROJECT_STRUCTURE, SETUP, SECURITY, OBSERVABILITY, COMPLIANCE) and the root build config (`pyproject.toml`, `package.json`, `docker-compose.yml`, `Makefile`).
+2. **Sections added** (in standard open-source order): shields.io badges (CI/license/Python/Node/TypeScript/status/Conventional Commits) · pitch · problem statement · feature list · 10-stage pipeline · six core design principles · tech-stack table (16 layers with roles) · repository structure + dependency rules · getting started (honest about Pre-Alpha state) · documentation index table (17 docs) · ADR table · status & roadmap (P1–P9) · success metrics · security summary · contributing conventions · license.
+3. Kept the README **accurate to repo status**: flagged Pre-Alpha, noted which commands work today (backing services, smoke tests) vs. which land with Phase 1 code (`make dev` / app services).
+
+### Next
+
+- [ ] Commit + push to `origin/main`
+- [ ] Phase 1 build: GitHub App + OAuth + FastAPI + PostgreSQL + Redis Streams + basic review publishing
+- [ ] ADR-006+ as architecture decisions are made
+
 
