@@ -4,6 +4,7 @@
 | Document | Purpose |
 |---|---|
 | [BEGINNERS_GUIDE.md](BEGINNERS_GUIDE.md) | Beginner-friendly overview — what Meridian is, how it works, and where everything lives (no prior knowledge assumed) |
+| [LEARNING_GUIDE.md](LEARNING_GUIDE.md) | Complete learning curriculum — every tech stack component (what/why/how/syntax/example), system-design patterns, scaling strategies, and end-to-end walkthrough (3,350+ lines, 51 sections across 5 parts) |
 | [PRD.md](PRD.md) | Product Requirements — problem, goals, users, user stories, acceptance criteria |
 | [SDD.md](SDD.md) | System Design — architecture, components, interfaces, data design |
 | [TRD.md](TRD.md) | Technical Requirements — tech stack, SLAs, quality gates, DoD |

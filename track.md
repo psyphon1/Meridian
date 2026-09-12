@@ -172,4 +172,27 @@
 - [ ] Phase 1 build: GitHub App + OAuth + FastAPI + PostgreSQL + Redis Streams + basic review publishing
 - [ ] ADR-006+ as architecture decisions are made
 
+---
+
+## Entry 7 — 2026-09-13: Complete learning guide (tech stack + system design + scaling)
+
+**Performed by:** Cline (agent) with Chinmay Duse (psyphon1)
+
+### Done
+
+1. **Created `docs/LEARNING_GUIDE.md`** — a comprehensive 3,350-line, 51-section learning curriculum structured as complete course notes. Organized into five parts:
+   - **Part I — Foundations** (sections 1-6): pull requests, APIs (REST/webhooks/async), databases, queues, microservices, system-design thinking framework.
+   - **Part II — Technology Stack** (sections 7-25): every tool Meridian uses — Python 3.12+, FastAPI, Pydantic, SQLAlchemy + Alembic, PostgreSQL + pgvector, Redis + Redis Streams, LangGraph, LiteLLM, tree-sitter + SCIP/LSP, Semgrep + CodeQL, Firecracker/gVisor, KMS/Vault, OpenTelemetry + Langfuse, structlog, Next.js + TypeScript, Docker, Kubernetes, Terraform, GitHub App + Webhooks. Each section follows the **What / Why / How / Syntax / Example / System-design takeaway** structure.
+   - **Part III — System Design Deep Dive** (sections 26-38): event-driven architecture, pipeline pattern, queue design at production scale, the evidence gate (core safety mechanism), trust hierarchy and prompt injection defense, tenant isolation, BYOK + envelope encryption, risk-adaptive compute, hash-chained audit log, circuit breakers/rate limiting/backoff, checkpointing and resumable workflows, the C4 model, modular monorepo boundaries.
+   - **Part IV — Scaling Meridian** (sections 39-47): horizontal vs. vertical scaling, database scaling (partitioning/read replicas/pooling), queue scaling (consumer groups/priority lanes), caching strategy, sandbox pool management, LLM cost control (token budgets/per-tenant ceilings), observability at scale (golden signals/SLOs/error budgets), deployment strategy (canary/blue-green), failure modes and mitigations (chaos engineering).
+   - **Part V — Complete Project Walkthrough** (sections 48-51): full architecture diagram, a timestamped end-to-end walkthrough of a real PR review (T+0s through T+43s), ADRs explained with ADR-004 as a full example, how to read and navigate the codebase, local setup commands, and a conclusion with the five most important principles.
+2. **Linked the guide from `docs/README.md`** in the documentation index (second row, after the beginner's guide).
+3. Built the document in ~30 editor chunks due to the 6,000-character new_text limit per call — all sections verified present and well-formed.
+
+### Next
+
+- [ ] Commit + push to `origin/main`
+- [ ] Phase 1 build: GitHub App + OAuth + FastAPI + PostgreSQL + Redis Streams + basic review publishing
+- [ ] ADR-006+ as architecture decisions are made
+
 
