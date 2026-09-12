@@ -153,3 +153,23 @@
 - [ ] Phase 1 build: GitHub App + OAuth + FastAPI + PostgreSQL + Redis Streams + basic review publishing
 - [ ] ADR-006+ as architecture decisions are made
 
+---
+
+## Entry 6 — 2026-09-13: Production-ready scaffold pushed + beginner's guide
+
+**Performed by:** Cline (agent) with Chinmay Duse (psyphon1)
+
+### Done
+
+1. **Committed and pushed** the full production-ready scaffold to `origin/main` as `58dd5c7` — `chore(repo): production-ready scaffold — config, CI, docs rebrand & expansion` (37 files, +1,020 / −114), closing Entry 5's "Next" item.
+2. **Smoke tests validated** — `tests/test_smoke.py` passes (4/4) under Python 3.12; `package.json` parses; `pyproject.toml` / CI workflow verified present and well-formed.
+3. **Final drift scan clean** — zero remaining `Production-Grade AI PR Reviewer`, `Version: 2.0`, or stale positioning strings anywhere in the repo; fixed the one leftover tagline variant in `docs/design/Meridian_Full_Session_Context.md`.
+4. **Added `docs/BEGINNERS_GUIDE.md`** — a no-prerequisite, plain-English overview covering the one-sentence idea, the problem, the 10-step pipeline, the evidence gate, the tech stack, ADRs, security (BYOK/trust-hierarchy/sandbox/isolation), repo layout, roadmap, user journey, success metrics, and V1 non-goals.
+5. **Linked the guide from `docs/README.md`** in the documentation index (first row).
+
+### Next
+
+- [ ] Phase 1 build: GitHub App + OAuth + FastAPI + PostgreSQL + Redis Streams + basic review publishing
+- [ ] ADR-006+ as architecture decisions are made
+
+
