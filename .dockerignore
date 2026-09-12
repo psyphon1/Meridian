@@ -1,3 +1,7 @@
+# Docs, track, and markdown are intentionally excluded so images stay lean.
+# AGENTS.md and the design artifacts are not needed at runtime.
+# (Matches DEPLOYMENT.md §2: immutable, minimal, digest-pinned images.)
+
 # Version control
 .git/
 .gitignore

@@ -1,10 +1,11 @@
-# Meridian — System Design Document (SDD)
+# Meridian — Autonomous AI PR Reviewer
+# System Design Document (SDD)
 
-**Product:** Meridian  
+**Product:** Meridian — Autonomous AI PR Reviewer  
 **Owner:** Chinmay Duse (psyphon1)  
 **GitHub:** https://github.com/psyphon1  
 **LinkedIn:** https://linkedin.com/in/chinmayduse  
-**Version:** 2.0  
+**Version:** 2.1  
 **Status:** Final
 
 ---

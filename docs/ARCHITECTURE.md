@@ -1,4 +1,5 @@
-# Meridian — Architecture
+# Meridian — Autonomous AI PR Reviewer
+# Architecture
 
 **Full document:** [`Meridian_Architecture.md`](design/Meridian_Architecture.md) · **Master design:** [`Meridian_Design_Doc_Final.html`](design/Meridian_Design_Doc_Final.html)
 

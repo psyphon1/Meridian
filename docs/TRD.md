@@ -1,4 +1,5 @@
-# Meridian — Technical Requirements Document (TRD)
+# Meridian — Autonomous AI PR Reviewer
+# Technical Requirements Document (TRD)
 
 **Owner:** Chinmay Duse (psyphon1) · **Version:** 2.1
 Full detail in [`design/Meridian_TRD.md`](design/Meridian_TRD.md). This is the working technical contract for V1.

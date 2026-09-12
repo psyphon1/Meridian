@@ -1,4 +1,5 @@
-# Meridian — Project Structure
+# Meridian — Autonomous AI PR Reviewer
+# Project Structure
 
 **Full document:** [`Meridian_PROJECT_STRUCTURE.md`](design/Meridian_PROJECT_STRUCTURE.md)
 

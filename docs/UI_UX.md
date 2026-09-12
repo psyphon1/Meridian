@@ -1,4 +1,5 @@
-# Meridian — UI / UX Guidelines
+# Meridian — Autonomous AI PR Reviewer
+# UI / UX Guidelines
 
 **Per design doc §31 / v2 spec §5.**
 

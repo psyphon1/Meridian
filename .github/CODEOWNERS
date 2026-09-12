@@ -1,0 +1,19 @@
+# Meridian code ownership — CODEOWNERS enforcement (docs/CODE_STANDARDS.md §Git,
+# docs/PROJECT_STRUCTURE.md §26 "Ownership Rules").
+#
+# Every path must resolve to a maintainer. Currently a single owner; expand as the
+# team grows (docs/ → architecture/product owner, infra/ → infrastructure owner).
+
+# Default owner for everything not listed below
+* @psyphon1
+
+# Documentation & agent entry point
+/docs/ @psyphon1
+/AGENTS.md @psyphon1
+
+# Security- and infrastructure-critical paths
+/infra/ @psyphon1
+/apps/api/ @psyphon1
+/packages/security/ @psyphon1
+/packages/evidence/ @psyphon1
+/packages/sandbox/ @psyphon1

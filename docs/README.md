@@ -1,4 +1,5 @@
-# Meridian Documentation Index
+# Meridian — Autonomous AI PR Reviewer
+# Documentation Index
 
 | Document | Purpose |
 |---|---|
@@ -28,3 +29,12 @@ The complete, authoritative design artifacts live in [`docs/design/`](design/):
 - [`Meridian_SDD.md`](design/Meridian_SDD.md), [`Meridian_TRD.md`](design/Meridian_TRD.md), [`Meridian_Architecture.md`](design/Meridian_Architecture.md), [`Meridian_PROJECT_STRUCTURE.md`](design/Meridian_PROJECT_STRUCTURE.md)
 
 The files under `docs/` are the working, industry-structured versions; where they summarize, the `docs/design/` documents are authoritative.
+
+### Single source of truth
+
+There are deliberately two documentation layers, and they are **not** a duplication to be reconciled file-by-file:
+
+- **`docs/design/`** is the *authoritative source of truth* — especially [`Meridian_Design_Doc_Final.html`](design/Meridian_Design_Doc_Final.html) (complete v2 spec in its appendix) and [`Meridian_Full_Session_Context.md`](design/Meridian_Full_Session_Context.md). When any two documents disagree, the design doc wins.
+- **`docs/`** is the *working layer* — industry-structured PRD/SDD/TRD/standards docs that are faster to read and edit day-to-day.
+
+**Rule:** if a change alters a requirement, contract, or architecture decision, update *both* layers (or log an ADR when it's an architecture change). If they ever drift, trust `docs/design/` over `docs/`.

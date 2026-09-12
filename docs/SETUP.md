@@ -1,4 +1,5 @@
-# Meridian — Local Development Setup
+# Meridian — Autonomous AI PR Reviewer
+# Local Development Setup
 
 **Targets: Python 3.12+, Node 20+ LTS, pnpm, Docker Desktop, GitHub CLI (`gh`), PostgreSQL 16, Redis 7.** 12-factor rule: all environment-varying config lives in `.env` (never committed), code contains no credentials.
 
@@ -25,6 +26,8 @@ gh auth switch -u psyphon1      # or your own account
 | LLM key | Any LiteLLM-supported provider | provided per-user in the dashboard, not in `.env` for app code |
 | Postgres / Redis | docker-compose defaults | `DATABASE_URL`, `REDIS_URL` |
 | KMS | Local dev: env-based master key | `KMS_MASTER_KEY` |
+
+> **KMS note (`SECURITY.md` §2):** for local development, `KMS_MASTER_KEY` (in `.env`) is the application-level key-encryption key (KEK) used to envelope-encrypt BYOK keys at rest. When a dedicated secret manager is available (Vault or a cloud KMS), set `SECRET_MANAGER_ENDPOINT` and the worker will fetch/wrap keys from that endpoint instead, taking precedence over the local key. The two vars are complementary — set `KMS_MASTER_KEY` for local, `SECRET_MANAGER_ENDPOINT` for managed deployments. Never set both to the same value or commit either.
 
 **Webhook forwarding:** use `gh webhook forward` (or smee) to route GitHub deliveries to `http://localhost:8000/webhooks/github` during development.
 

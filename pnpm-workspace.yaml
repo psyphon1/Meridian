@@ -1,0 +1,6 @@
+# pnpm monorepo workspace (PROJECT_STRUCTURE.md §1)
+# Workspace packages live under apps/ (deployable apps) and packages/ (capabilities).
+packages:
+  - "apps/*"
+  - "packages/*"
+

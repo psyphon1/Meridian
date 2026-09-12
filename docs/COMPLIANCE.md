@@ -1,4 +1,5 @@
-# Meridian — Compliance & Audit
+# Meridian — Autonomous AI PR Reviewer
+# Compliance & Audit
 
 **Per v2 spec §15 — compliance/audit is a first-class server-side dependency, not an afterthought.**
 

@@ -1,4 +1,5 @@
-# Meridian — Observability
+# Meridian — Autonomous AI PR Reviewer
+# Observability
 
 **Framework: Google SRE golden signals (latency, traffic, errors, saturation) over OpenTelemetry; Langfuse for LLM-specific tracing.** Alert on **symptoms**, not causes — page a human only for urgent, user-visible problems; everything else is a dashboard/ticket.
 

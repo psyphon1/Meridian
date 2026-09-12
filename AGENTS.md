@@ -1,5 +1,7 @@
 # AGENTS.md — Instructions for All AI Agents Working on Meridian
 
+> **Product:** Meridian — Autonomous AI PR Reviewer · *Your autonomous first-pass senior engineer for every GitHub pull request.*
+
 **This file is the mandatory entry point for any AI agent (Claude, Codex, Copilot, or any other coding agent) doing work in this repository. Read it fully before touching any file. It is version-controlled; propose changes via PR like any other code.**
 
 ---

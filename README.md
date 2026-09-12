@@ -1,6 +1,6 @@
-# Meridian
+# Meridian — Autonomous AI PR Reviewer
 
-> **The autonomous first-pass engineer for every GitHub pull request.**
+> **Your autonomous first-pass senior engineer for every GitHub pull request.**
 
 Meridian automatically performs the first senior-level PR investigation for every GitHub pull request — using repository-wide context, specialized AI reasoning and verifiable evidence — then publishes the review and escalates only the decisions that still require human judgment.
 

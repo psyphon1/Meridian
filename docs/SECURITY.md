@@ -1,4 +1,5 @@
-# Meridian — Security Policy
+# Meridian — Autonomous AI PR Reviewer
+# Security Policy
 
 **Structure follows SANS information-security policy practice and OWASP ASVS verification categories.** Baseline: SOC2-shaped controls (per v2 spec §15); revisit if a formal framework (GDPR Art. 17, HIPAA) becomes required.
 

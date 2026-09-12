@@ -1,0 +1,52 @@
+name: Bug report
+description: Report a defect in Meridian
+title: "bug: "
+labels: ["bug", "triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting. Per docs/DEVELOPER_STANDARDS.md, findings should cite
+        reproducible evidence — please include as much concrete detail as possible.
+  - type: input
+    id: version
+    attributes:
+      label: Version / commit
+      description: Release tag or commit SHA, plus environment (dev/staging/prod).
+      placeholder: "e.g. 0.1.0 @ abc1234, staging"
+    validations:
+      required: true
+  - type: textarea
+    id: summary
+    attributes:
+      label: Summary
+      description: What went wrong, in one or two sentences.
+    validations:
+      required: true
+  - type: textarea
+    id: repro
+    attributes:
+      label: Steps to reproduce
+      description: Ordered steps. Link a PR or paste a diff if relevant.
+      placeholder: "1. …\n2. …\n3. …"
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected vs actual
+      description: What you expected to happen and what actually happened.
+    validations:
+      required: true
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Evidence
+      description: Logs (redacted), audit rows, trace/run_id, screenshots. No secrets or raw repo content — see docs/COMPLIANCE.md §3.
+  - type: dropdown
+    id: severity
+    attributes:
+      label: Severity
+      options: ["BLOCKING", "HIGH", "MEDIUM", "LOW", "NIT"]
+    validations:
+      required: true

@@ -1,4 +1,5 @@
-# Meridian — Deployment & Operations
+# Meridian — Autonomous AI PR Reviewer
+# Deployment & Operations
 
 **12-factor principles throughout:** config strictly separated from code (env vars, granular and orthogonal — never "environment groups"), backing services attached via URLs, stateless processes, disposability. Infrastructure: Docker → Kubernetes (base + overlays) provisioned by Terraform (dev/staging/production).
 

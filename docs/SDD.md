@@ -1,6 +1,7 @@
-# Meridian — System Design Document (SDD)
+# Meridian — Autonomous AI PR Reviewer
+# System Design Document (SDD)
 
-**Owner:** Chinmay Duse (psyphon1) · **Version:** 2.0
+**Owner:** Chinmay Duse (psyphon1) · **Version:** 2.1
 **Structure follows arc42/C4-informed SDD practice:** context → building blocks → key design decisions → data design → failure handling. Full detail in [`design/Meridian_SDD.md`](design/Meridian_SDD.md).
 
 ---

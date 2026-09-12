@@ -1,4 +1,5 @@
-# Meridian — Full Session Context / Agent Handoff
+# Meridian — Autonomous AI PR Reviewer
+# Full Session Context / Agent Handoff
 
 ## 0. Purpose of this file
 
@@ -10,9 +11,9 @@ This document captures the complete useful context developed in the session so a
 - GitHub: https://github.com/psyphon1
 - LinkedIn: https://linkedin.com/in/chinmayduse
 
-**Product name:** Meridian
+**Product name:** Meridian — Autonomous AI PR Reviewer
 
-**Primary product:** Production-grade GitHub App for autonomous first-pass PR review.
+**Primary product:** Production-grade GitHub App for autonomous first-pass PR review — *your autonomous first-pass senior engineer for every GitHub pull request.*
 
 ---
 
@@ -94,7 +95,7 @@ Core philosophy:
 
 A key product positioning:
 
-> **Meridian — the autonomous first-pass engineer for every pull request.**
+> **Meridian — Autonomous AI PR Reviewer: your autonomous first-pass senior engineer for every GitHub pull request.**
 
 ---
 

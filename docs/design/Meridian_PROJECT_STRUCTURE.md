@@ -1,6 +1,7 @@
-# Meridian — Project Structure
+# Meridian — Autonomous AI PR Reviewer
+# Project Structure
 
-**Product:** Meridian  
+**Product:** Meridian — Autonomous AI PR Reviewer  
 **Owner:** Chinmay Duse (psyphon1)  
 **GitHub:** https://github.com/psyphon1  
 **LinkedIn:** https://linkedin.com/in/chinmayduse  

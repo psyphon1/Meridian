@@ -1,10 +1,11 @@
-# Meridian — Technical Requirements Document (TRD)
+# Meridian — Autonomous AI PR Reviewer
+# Technical Requirements Document (TRD)
 
-**Product:** Meridian  
+**Product:** Meridian — Autonomous AI PR Reviewer  
 **Owner:** Chinmay Duse (psyphon1)  
 **GitHub:** https://github.com/psyphon1  
 **LinkedIn:** https://linkedin.com/in/chinmayduse  
-**Version:** 2.0  
+**Version:** 2.1  
 **Status:** Final
 
 ## 1. Purpose

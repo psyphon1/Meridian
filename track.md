@@ -126,3 +126,30 @@
 
 - Root scaffold files (`Makefile`, `pyproject.toml`, `package.json`, `pnpm-workspace.yaml`, `docker-compose.yml`) exist and are tracked, intentionally empty pending Phase 1.
 - Git doesn't track empty directories — `.gitkeep` files make the skeleton visible on GitHub; remove each as real content lands.
+---
+
+## Entry 5 — 2026-09-13: Production-ready config + docs rebrand/expansion
+
+**Performed by:** Cline (agent) with Chinmay Duse (psyphon1)
+
+### Done
+
+1. **Filled the previously-empty build/config files** with real, working content:
+   - `pyproject.toml` — Python 3.12+ project (FastAPI, LangGraph, LiteLLM, SQLAlchemy+psycopg, pgvector, Redis, structlog, OpenTelemetry) with Ruff/mypy/pytest tooling, version 0.1.0.
+   - `package.json` + `pnpm-workspace.yaml` — pnpm@9 workspace, Node 20+, strict TypeScript, ESLint + Prettier.
+   - `docker-compose.yml` — Postgres 16 (pgvector) + Redis 7 backing services.
+   - `Makefile` — developer task runner (lint, typecheck, test, dev, bootstrap).
+2. **CI pipeline** created at `.github/workflows/ci.yml`: Python (Ruff → mypy → pytest), frontend (ESLint + tsc), Gitleaks secret scan, CodeQL SAST, anchore/syft SBOM.
+3. **Repo hygiene**: `.github/CODEOWNERS`, `.github/ISSUE_TEMPLATE/bug_report.yml` + `feature_request.yml`, expanded `.env.example` (OAuth vars, model ceiling, sandbox limits), commented `.dockerignore`, `scripts/bootstrap/bootstrap.ps1`, `tests/test_smoke.py`.
+4. **Env-var drift reconciled**: `.env.example` and `docs/SETUP.md` now document `KMS_MASTER_KEY` (local KEK) **and** `SECRET_MANAGER_ENDPOINT` (Vault/cloud KMS) as complementary, with precedence clarified — neither dropped.
+5. **New brand positioning applied** repo-wide — "**Meridian — Autonomous AI PR Reviewer**" + tagline "**Your autonomous first-pass senior engineer for every GitHub pull request**" — to `README.md`, `AGENTS.md`, all `docs/` working docs, and all `docs/design/` artifacts (including `Meridian_Design_Doc_Final.html` title/meta/H1/appendix).
+6. **Version numbers unified → 2.1** across `PRD.md`, `SDD.md`, `TRD.md`, and the design `SDD`/`TRD`/`Architecture` docs + the HTML appendix.
+7. **Thin docs expanded with concrete, numbered requirements, tables and examples**: `CODE_STANDARDS.md` (hard rules, tooling matrix, naming, async), `DEVELOPER_STANDARDS.md` (DoD checklist, PR size limits, testing quadrants), `AGENT_STANDARDS.md` (output schema, evaluation gating), `PRD.md` (FR table with acceptance criteria, success-metrics table, expanded goals/user-stories/non-goals).
+8. **Single-source-of-truth note** added to `docs/README.md`, explicitly resolving the `docs/` vs `docs/design/` layering (design docs are authoritative; update both on contract changes).
+
+### Next
+
+- [ ] Commit + push to `origin/main` as psyphon1
+- [ ] Phase 1 build: GitHub App + OAuth + FastAPI + PostgreSQL + Redis Streams + basic review publishing
+- [ ] ADR-006+ as architecture decisions are made
+
