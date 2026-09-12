@@ -2,6 +2,8 @@
 
 **Per v2 spec §15 — compliance/audit is a first-class server-side dependency, not an afterthought.**
 
+> **AI agents:** [`AGENTS.md`](../AGENTS.md) is your entry point — audit logging, retention, and redaction rules here are non-negotiable in any code you write.
+
 ---
 
 ## 1. Append-Only Audit Log

@@ -2,6 +2,8 @@
 
 **Per design doc §31 / v2 spec §5.**
 
+> **AI agents:** [`AGENTS.md`](../AGENTS.md) is your entry point — all UI work must follow these guidelines and the design artifacts in [`design/`](design/).
+
 ## Primary dashboard sections
 
 Overview · Repositories · Review Runs · Findings · Rules · Spend · Audit · Settings.

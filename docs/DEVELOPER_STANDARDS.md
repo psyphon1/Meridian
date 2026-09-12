@@ -2,6 +2,8 @@
 
 **Per v2 spec / design doc §42.**
 
+> **AI agents:** [`AGENTS.md`](../AGENTS.md) is the mandatory entry point for any agent working in this repo — these developer standards apply to agent work exactly as to human work, without exception.
+
 - Every feature begins with an issue + acceptance criteria.
 - PRs remain reviewable — split oversized changes.
 - Behavior changes include tests.

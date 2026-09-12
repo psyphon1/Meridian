@@ -17,6 +17,7 @@
 | [DEPLOYMENT.md](DEPLOYMENT.md) | Deployment architecture, environments, rollout strategy |
 | [OBSERVABILITY.md](OBSERVABILITY.md) | Golden signals, metrics, tracing, logging, alerting |
 | [adr/](adr/) | Architecture Decision Records (ADR-001…005 + process) |
+| [`../AGENTS.md`](../AGENTS.md) | **Mandatory entry point for all AI coding agents** — reading order, hard rules, conflict precedence |
 
 ## Full source documents (`docs/design/`)
 

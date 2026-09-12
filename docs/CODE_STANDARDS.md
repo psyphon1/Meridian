@@ -2,6 +2,8 @@
 
 **Per v2 spec §41 and the design doc's engineering standards.**
 
+> **AI agents:** [`AGENTS.md`](../AGENTS.md) at the repo root is your entry point — you MUST follow these code standards for every line of code you write, and follow all design docs in [`design/`](design/). See also [`DEVELOPER_STANDARDS.md`](DEVELOPER_STANDARDS.md) for workflow rules.
+
 ## Python (API, worker, services, packages)
 
 - Type hints (strict where practical); explicit error handling; PEP 8.

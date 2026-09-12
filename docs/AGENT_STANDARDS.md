@@ -2,6 +2,8 @@
 
 **Per design doc §43 / v2 spec §9.** Agents are LLM-powered components with narrow responsibilities inside the review pipeline.
 
+> **Scope note:** This document governs the *product's* LLM review agents. **AI coding agents working on this repository** must instead follow [`AGENTS.md`](../AGENTS.md) at the repo root (and, by extension, this document when writing agent code).
+
 ## Behavioral contract
 
 1. **Narrow responsibilities** — one review concern per agent (correctness, security, performance, architecture, reliability, testing).

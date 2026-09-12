@@ -89,3 +89,23 @@
 - [ ] Fill `Makefile`, `pyproject.toml`, `package.json`, `pnpm-workspace.yaml`, `docker-compose.yml` (code phase)
 - [ ] Phase 1 build order: GitHub App + FastAPI + PostgreSQL + Redis Streams + basic review publishing
 - [ ] CI workflow files under `.github/workflows/`
+
+---
+
+## Entry 3 — 2026-09-12: AGENTS.md agent entry point
+
+**Performed by:** Cline (agent) with Chinmay Duse (psyphon1)
+
+### Done
+
+1. **Created root `AGENTS.md`** — mandatory entry point for all AI coding agents working on this repo:
+   - Non-negotiable reading order: AGENTS.md → all design artifacts in `docs/design/` (Design_Doc_Final.html = source of truth) → `docs/CODE_STANDARDS.md` → `docs/DEVELOPER_STANDARDS.md` → task-relevant docs
+   - Hard rules: follow all `docs/design/` docs, always follow CODE_STANDARDS + DEVELOPER_STANDARDS, ADR before architecture changes, dependency rules, evidence gate is non-bypassable, trust hierarchy absolute, update track.md
+   - Working conventions + conflict-precedence chain
+2. **Wired agent compliance notes into every standards doc**: `CODE_STANDARDS.md`, `DEVELOPER_STANDARDS.md`, `AGENT_STANDARDS.md` (scope note: product LLM agents vs coding agents), `SECURITY.md`, `COMPLIANCE.md`, `PROJECT_STRUCTURE.md`, `UI_UX.md` — each points to `AGENTS.md` as the entry point.
+3. **Linked AGENTS.md** from `README.md` (Documentation section) and `docs/README.md` index.
+
+### Pending from Entry 2
+
+- [ ] Push to `origin/main` (was interrupted by credential-helper fix; GCM stale account resolved)
+

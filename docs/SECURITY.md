@@ -2,6 +2,8 @@
 
 **Structure follows SANS information-security policy practice and OWASP ASVS verification categories.** Baseline: SOC2-shaped controls (per v2 spec §15); revisit if a formal framework (GDPR Art. 17, HIPAA) becomes required.
 
+> **AI agents:** [`AGENTS.md`](../AGENTS.md) is your entry point — every security rule here (trust hierarchy, secrets handling, sandbox posture) applies to agent-written code without exception.
+
 ---
 
 ## 1. Boundary Model

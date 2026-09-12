@@ -25,6 +25,8 @@ PR opened/updated
 
 See [`docs/README.md`](docs/README.md) for the full documentation index.
 
+> **AI coding agents:** start with [`AGENTS.md`](AGENTS.md) — the mandatory entry point that defines the reading order (design artifacts in `docs/design/` first, then `docs/CODE_STANDARDS.md` and `docs/DEVELOPER_STANDARDS.md`, always).
+
 - [Product Requirements (PRD)](docs/PRD.md)
 - [System Design (SDD)](docs/SDD.md)
 - [Technical Requirements (TRD)](docs/TRD.md)

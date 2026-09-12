@@ -2,6 +2,8 @@
 
 **Full document:** [`Meridian_PROJECT_STRUCTURE.md`](design/Meridian_PROJECT_STRUCTURE.md)
 
+> **AI agents:** [`AGENTS.md`](../AGENTS.md) at the repo root is your entry point — the layout and dependency rules below are mandatory for all agent-written code, as documented in the design artifacts under [`design/`](design/).
+
 ## Layout (modular monorepo)
 
 ```
