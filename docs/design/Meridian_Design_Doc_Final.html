@@ -1,0 +1,1415 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Meridian — Design Doc Final</title>
+<meta name="description" content="Production-grade engineering documentation for Meridian, an autonomous GitHub PR reviewer.">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@3.4.1/dist/css/bootstrap.min.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@5.15.4/css/all.min.css">
+<style>
+:root{--bg:#fff;--fg:#333;--muted:#777;--panel:#f7f8fa;--border:#e7e9ed;--accent:#2563eb;--code:#f5f6f8}
+.dark{--bg:#101318;--fg:#dbe2ea;--muted:#9aa6b2;--panel:#171c23;--border:#29313b;--accent:#7eb0ff;--code:#0b0f14}
+html{scroll-behavior:smooth}body{background:var(--bg);color:var(--fg);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif;line-height:1.65}
+a{color:var(--accent)}hr{border-color:var(--border)}h1,h2,h3,h4{color:var(--fg)}h1{font-size:36px;margin-top:0}h2{margin-top:54px;padding-bottom:10px;border-bottom:1px solid var(--border)}h3{margin-top:30px}
+.topbar{position:sticky;top:0;z-index:20;background:var(--bg);border-bottom:1px solid var(--border);padding:14px 0}
+.brand{font-size:20px;font-weight:700}.toolbar{text-align:right}.btn-doc{background:var(--panel);border:1px solid var(--border);color:var(--fg)}
+.sidebar{position:sticky;top:76px;height:calc(100vh - 90px);overflow:auto;padding:25px 15px;border-right:1px solid var(--border)}
+.sidebar ul{list-style:none;padding-left:0}.sidebar li{margin:7px 0}.sidebar a{color:var(--fg);font-size:13px}.sidebar .sub{padding-left:16px}.sidebar .section{font-weight:700;margin-top:14px}
+.main{padding:35px 50px 80px}.meta{background:var(--panel);border:1px solid var(--border);border-radius:6px;padding:18px;margin:20px 0 28px}
+.card{background:var(--panel);border:1px solid var(--border);border-radius:6px;padding:18px;margin:15px 0}.callout{border-left:4px solid var(--accent);background:var(--panel);padding:14px 18px;margin:18px 0}
+pre{background:var(--code);color:var(--fg);border:1px solid var(--border);border-radius:5px;padding:16px;overflow:auto}
+code{background:var(--code);color:var(--fg);padding:2px 4px;border-radius:3px}
+table{width:100%;border-collapse:collapse;margin:15px 0}.table-wrap{overflow:auto}th,td{border:1px solid var(--border);padding:9px;vertical-align:top}th{background:var(--panel)}
+.label-p{display:inline-block;padding:4px 8px;border-radius:12px;background:var(--panel);border:1px solid var(--border);margin:2px;font-size:12px}
+footer{margin-top:60px;padding-top:20px;border-top:1px solid var(--border);color:var(--muted)}
+@media(max-width:767px){.sidebar{position:relative;top:auto;height:auto;border-right:0;border-bottom:1px solid var(--border)}.main{padding:25px 18px 60px}h1{font-size:29px}.toolbar{text-align:left;margin-top:10px}}
+
+.reveal{opacity:0;transform:translateY(22px);transition:opacity .7s ease,transform .7s cubic-bezier(.22,.61,.36,1)}
+.reveal.is-visible{opacity:1;transform:none}
+.main section > h2,.main section > h3,.main .card,.main .meta,.main .callout,.main .table-wrap,.main pre,.main ul,.main ol,.main p{will-change:transform,opacity}
+@media (prefers-reduced-motion:reduce){
+  html{scroll-behavior:auto}
+  .reveal,.reveal.is-visible{opacity:1;transform:none;transition:none}
+}
+</style>
+</head>
+<body>
+<div class="topbar">
+<div class="container-fluid">
+<div class="row">
+<div class="col-sm-7"><div class="brand">Meridian <small class="text-muted">Engineering Documentation v1.0</small></div></div>
+<div class="col-sm-5 toolbar">
+<button id="themeBtn" class="btn btn-sm btn-doc"><i class="fas fa-adjust"></i> Light / Dark</button>
+<a class="btn btn-sm btn-doc" href="https://github.com/psyphon1"><i class="fab fa-github"></i> Owner</a>
+</div>
+</div></div></div>
+
+<div class="container-fluid">
+<div class="row">
+<aside class="col-sm-3 col-md-2 sidebar">
+<ul>
+<li class="section"><a href="#introduction">Introduction</a></li>
+<li><a href="#requirements">Requirements</a></li>
+<li><a href="#getting-started">Getting Started</a></li>
+<li class="section"><a href="#prd">PRD</a></li>
+<li><a href="#sdd">SDD</a></li>
+<li class="sub"><a href="#sdd-flow">System Flow</a></li>
+<li class="sub"><a href="#sdd-state">State Machine</a></li>
+<li class="section"><a href="#trd">TRD</a></li>
+<li class="sub"><a href="#stack">Technology Stack</a></li>
+<li><a href="#architecture">Architecture</a></li>
+<li><a href="#db">Database Architecture</a></li>
+<li><a href="#wiring">Module Wiring</a></li>
+<li class="sub"><a href="#webhook">Webhook</a></li>
+<li class="sub"><a href="#repo-intel">Repository Intelligence</a></li>
+<li class="sub"><a href="#agents">Review Agents</a></li>
+<li class="sub"><a href="#evidence">Evidence</a></li>
+<li class="sub"><a href="#escalation">Escalation</a></li>
+<li class="section"><a href="#standards">Engineering Standards</a></li>
+<li class="sub"><a href="#code-standards">Code Standards</a></li>
+<li class="sub"><a href="#developer-standards">Developer Standards</a></li>
+<li class="sub"><a href="#agent-standards">Agent Standards</a></li>
+<li><a href="#security">Security & Compliance</a></li>
+<li><a href="#uiux">UI / UX</a></li>
+<li><a href="#setup">Setup</a></li>
+<li><a href="#deployment">Deployment</a></li>
+<li><a href="#observability">Observability</a></li>
+<li><a href="#evaluation">Evaluation</a></li>
+<li><a href="#roadmap">Roadmap</a></li>
+<li><a href="#adr">Architecture Decisions</a></li>
+<li><a href="#changelog">Version History</a></li>
+<li><a href="#source-v2">Complete v2 Spec</a></li>
+<li><a href="#sources">Sources</a></li>
+</ul>
+</aside>
+
+<main class="col-sm-9 col-md-10 main">
+<section id="introduction">
+<h1>Meridian — Production-Grade AI PR Reviewer</h1>
+<p class="lead">An autonomous first-pass senior engineer for every GitHub Pull Request.</p>
+<div class="meta">
+<p><strong>Product:</strong> Meridian</p>
+<p><strong>Version:</strong> Final · v2 source-complete</p>
+<p><strong>Owner:</strong> Chinmay Duse (psyphon1)</p>
+<p><strong>GitHub:</strong> <a href="https://github.com/psyphon1">github.com/psyphon1</a></p>
+<p><strong>LinkedIn:</strong> <a href="https://linkedin.com/in/chinmayduse">linkedin.com/in/chinmayduse</a></p>
+<p><strong>Primary surface:</strong> GitHub App + web dashboard</p>
+<p><strong>Architecture model:</strong> Repository intelligence → specialized reasoning → deterministic verification → automatic review → human escalation.</p>
+</div>
+<p>Meridian removes the manual coordination bottleneck where developers must find a senior engineer, provide context, start an AI review and wait for permission to publish results. A GitHub event triggers Meridian automatically; the system gathers repository context, understands the change, selects the right review depth, verifies high-impact findings and publishes a structured review.</p>
+<div class="callout"><strong>Product thesis:</strong> Do the investigation automatically, prove important claims, and escalate human judgment only where it is valuable.</div>
+</section>
+<div class="card">
+<h4>Source verification</h4>
+<p>Final document includes the attached v2 requirements for BYOK, no-RBAC tenant isolation, audit/compliance, repository intelligence, hybrid retrieval, conditional agents, incremental re-review, schema-enforced evidence gates, SHA-pinned citations, cost controls, per-tenant sandboxing, GitHub rate limiting, data model, SLAs, quality gates, MVP phases, failure modes, Definition of Done, and final product thesis.</p>
+</div>
+
+<section id="requirements">
+<h2>Requirements</h2>
+<h3>Primary goals</h3>
+<ul><li>Automatically review every eligible PR after open/update events.</li><li>Understand repository-specific code, docs, tests, history and architecture.</li><li>Detect correctness, security, performance, architecture, reliability and testing risks.</li><li>Never publish a blocking/high finding without verifiable evidence.</li><li>Use risk-adaptive compute and retrieval budgets.</li><li>Escalate high-risk or ambiguous findings rather than pretending certainty.</li></ul>
+<h3>Non-goals for V1</h3>
+<ul><li>Replacing final human approval.</li><li>Autonomous production merge.</li><li>Supporting SCM providers other than GitHub.</li><li>Unbounded autonomous execution.</li></ul>
+</section>
+
+<section id="getting-started">
+<h2>Getting Started</h2>
+<ol><li>Create/configure the Meridian GitHub App with minimum required permissions.</li><li>Deploy the webhook/API endpoint over HTTPS.</li><li>Install Meridian on selected repositories.</li><li>Bootstrap the repository intelligence index.</li><li>Configure model provider credentials using a secret manager.</li><li>Configure review rules, severity thresholds and cost limits.</li><li>Open a test PR and verify event → queue → analysis → evidence → GitHub review.</li></ol>
+</section>
+
+<section id="prd">
+<h2>Product Requirements Document</h2>
+<h3>Core user stories</h3>
+<ul>
+<li><strong>Developer:</strong> “I want immediate first-pass feedback so I do not wait for senior availability.”</li>
+<li><strong>Senior engineer:</strong> “I want Meridian to perform the repetitive investigation so I only review high-value decisions.”</li>
+<li><strong>Tech lead:</strong> “I want repository architecture and engineering rules enforced consistently.”</li>
+<li><strong>Security engineer:</strong> “I want security findings supported by evidence, not model intuition.”</li>
+<li><strong>Developer:</strong> “I want noisy stylistic opinions suppressed.”</li>
+</ul>
+<h3>Acceptance criteria</h3>
+<ul><li>PR open/synchronize events trigger idempotent review jobs.</li><li>Review is published automatically according to repository policy.</li><li>Every finding contains category, severity, confidence, location and evidence state.</li><li>Duplicate webhook deliveries do not create duplicate reviews.</li><li>Partial failure is visible and never reported as full success.</li></ul>
+</section>
+
+<section id="sdd">
+<h2>System Design Document</h2>
+<h3 id="sdd-flow">System Flow</h3>
+<pre>
+GitHub PR
+   |
+   v
++----------------------+
+| Webhook Gateway      |
+| signature + idempot. |
++----------+-----------+
+           |
+           v
++----------------------+
+| Durable Queue        |
++----------+-----------+
+           |
+           v
++----------------------+
+| Review Orchestrator  |
++----------+-----------+
+           |
+           v
++----------------------+
+| Intent + Risk        |
++----------+-----------+
+           |
+           v
++----------------------+
+| Change Localization  |
++----------+-----------+
+           |
+           v
++----------------------+
+| Repository Context   |
++----------+-----------+
+           |
+           v
++----------------------+
+| Conditional Agents   |
++----------+-----------+
+           |
+           v
++----------------------+
+| Evidence Planner     |
++----------+-----------+
+           |
+           v
++----------------------+
+| Semgrep / CodeQL /   |
+| Targeted Tests       |
++----------+-----------+
+           |
+           v
++----------------------+
+| Adjudication         |
++----------+-----------+
+           |
+           v
++----------------------+
+| Confidence/Severity  |
++------+---------------+
+       |
+       +---------------------> GitHub Review
+       |
+       +---------------------> Human Escalation
+</pre>
+<h3 id="sdd-state">Review State Machine</h3>
+<pre>
+           +-----------+
+           |  RECEIVED |
+           +-----+-----+
+                 |
+                 v
+           +-----------+
+           | VALIDATED |
+           +-----+-----+
+                 |
+                 v
+           +-----------+
+           |  QUEUED   |
+           +-----+-----+
+                 |
+                 v
+       +-------------------+
+       | CONTEXT_BUILDING  |
+       +---------+---------+
+                 |
+                 v
+           +-----------+
+           | ANALYZING |
+           +-----+-----+
+                 |
+                 v
+           +-----------+
+           | VERIFYING |
+           +-----+-----+
+                 |
+                 v
+        +----------------+
+        | ADJUDICATING   |
+        +---+---------+--+
+            |         |
+            v         v
+      +-----------+ +-----------+
+      | PUBLISHING| | ESCALATED |
+      +-----+-----+ +-----+-----+
+            |             |
+            +------+------+
+                   v
+             +-----------+
+             | COMPLETED |
+             +-----------+
+
+Failure/partial paths:
+RECEIVED / CONTEXT / ANALYZING -> FAILED
+VERIFYING -> PARTIAL -> ADJUDICATING
+</pre>
+</section>
+
+<section id="trd">
+<h2>Technical Requirements Document</h2>
+<h3 id="stack">Technology Stack</h3>
+<div class="table-wrap"><table><tr><th>Layer</th><th>Technology</th><th>Role / rationale</th></tr>
+<tr><td>SCM</td><td>GitHub App</td><td>Installation-scoped access, webhooks and native PR review actions.</td></tr>
+<tr><td>API</td><td>Python + FastAPI</td><td>Async webhooks and strong AI/code-tooling ecosystem.</td></tr>
+<tr><td>Workflow</td><td>LangGraph</td><td>Explicit stateful orchestration, branching, retries and checkpoints.</td></tr>
+<tr><td>Parsing</td><td>Tree-sitter</td><td>Incremental multi-language syntax/AST parsing.</td></tr>
+<tr><td>Code navigation</td><td>SCIP/LSP</td><td>Precise definitions, references and relationships.</td></tr>
+<tr><td>DB</td><td>PostgreSQL + pgvector</td><td>Transactional source of truth plus vector retrieval for V1.</td></tr>
+<tr><td>Retrieval</td><td>BM25 + dense vectors + reranking</td><td>Exact identifiers + semantic relevance.</td></tr>
+<tr><td>Analysis</td><td>Semgrep + CodeQL</td><td>Deterministic/policy-driven verification.</td></tr>
+<tr><td>Execution</td><td>Sandboxed containers / microVM path</td><td>Safe test and reproduction execution.</td></tr>
+<tr><td>LLM gateway</td><td>LiteLLM</td><td>Model/provider abstraction and routing.</td></tr>
+<tr><td>Inference</td><td>Frontier APIs + vLLM</td><td>Quality first; self-hosting where cost/privacy justify it.</td></tr>
+<tr><td>Observability</td><td>OpenTelemetry + Langfuse</td><td>Trace workflow, latency, cost and evaluation data.</td></tr>
+<tr><td>Infra</td><td>Docker + Terraform + GitHub Actions</td><td>Reproducible development and deployment.</td></tr>
+<tr><td>UI</td><td>Next.js + TypeScript</td><td>Onboarding, review status, findings and configuration.</td></tr></table></div>
+</section>
+
+<section id="architecture">
+<h2>Architecture</h2>
+<pre>
+                         +----------------------+
+                         |       GitHub         |
+                         +----------+-----------+
+                                    |
+                                    v
+                         +----------------------+
+                         | FastAPI Webhook      |
+                         +----------+-----------+
+                                    |
+                                    v
+                         +----------------------+
+                         | Durable Queue        |
+                         +----------+-----------+
+                                    |
+                                    v
+                         +----------------------+
+                         | LangGraph            |
+                         | Orchestrator         |
+                         +----------+-----------+
+                                    |
+               +--------------------+--------------------+
+               |                                         |
+               v                                         v
+   +-----------------------+                  +------------------+
+   | Repository Intelligence|                  | Review Agents    |
+   +-----------+------------+                  +--------+---------+
+               |                                        |
+      +--------+--------+                        +------+------+
+      |        |        |                        |             |
+      v        v        v                        v             v
+ Tree-sitter SCIP/LSP Hybrid                    Evidence      LiteLLM
+                    Retrieval                   Engine           |
+                       |                        |        +--------+--------+
+                       v                   +----+----+   |                 |
+             +-------------------+         |         |   v                 v
+             | PostgreSQL +      |      Semgrep   CodeQL  Providers     vLLM
+             | pgvector          |         |         |
+             +-------------------+         +----+----+
+                                                |
+                                                v
+                                           +----------+
+                                           | Sandbox  |
+                                           +----+-----+
+                                                |
+                                                v
+                                         Targeted Tests
+
+Orchestrator -> Adjudication -> GitHub Review
+Orchestrator -> OpenTelemetry
+</pre>
+<h3>Design principle</h3>
+<p><strong>LLM = reasoning.</strong> <strong>Code intelligence = structural truth.</strong> <strong>Static analysis/execution = evidence.</strong> <strong>PostgreSQL = system of record.</strong></p>
+</section>
+
+<section id="db">
+<h2>Database Architecture</h2>
+<pre>
+USER
+  |
+  +----< INSTALLATION
+            |
+            +----< REPOSITORY
+                      |
+                      +----< PULL_REQUEST
+                      |         |
+                      |         +----< REVIEW_RUN
+                      |                    |
+                      |                    +----< FINDING
+                      |                    |         |
+                      |                    |         +----< EVIDENCE
+                      |                    |
+                      |                    +----< TOOL_RUN
+                      |
+                      +----< FILE
+                      |         |
+                      |         +----< SYMBOL
+                      |
+                      +----< RULE
+                      |
+                      +----< REVIEW_MEMORY
+                      |
+                      +----< AUDIT_EVENT
+</pre>
+<h3>Core entities</h3>
+<ul><li><code>users</code>, <code>installations</code>, <code>repositories</code></li><li><code>pull_requests</code>, <code>commits</code>, <code>files</code>, <code>symbols</code></li><li><code>review_runs</code>, <code>findings</code>, <code>evidence</code>, <code>tool_runs</code></li><li><code>rules</code>, <code>review_memory</code>, <code>audit_events</code></li></ul>
+</section>
+
+<section id="wiring">
+<h2>Module Wiring Diagrams</h2>
+<h3 id="webhook">Webhook</h3>
+<pre>
+GitHub
+  |
+  | PR event
+  v
++-------------------+
+| Webhook Gateway   |
++---------+---------+
+          |
+          | verify signature
+          v
++-------------------+
+| Idempotency Check |
++---------+---------+
+          |
+          | enqueue
+          v
++-------------------+
+| Durable Queue     |
++---------+---------+
+          |
+          v
+      2xx response
+</pre>
+<h3 id="repo-intel">Repository Intelligence</h3>
+<pre>
+Repository Snapshot
+       |
+       +--------------------+-------------------+------------------+
+       |                    |                   |
+       v                    v                   v
+  Tree-sitter           SCIP/LSP            Git History
+       |                    |                   |
+       +---------+----------+                   v
+                 v                        Historical Memory
+            +---------+
+            | Code    |
+            | Graph   |
+            +----+----+
+                 |
+                 v
+                Index
+
+Repository Snapshot ---> Docs / Configs / Rules ---> Repository Rules
+Historical Memory ----------------------------------> Index
+</pre>
+<h3 id="agents">Review Agents</h3>
+<pre>
+                    +----------------+
+                    | Verified       |
+                    | Context       |
+                    +-------+--------+
+                            |
+                            v
+                    +---------------+
+                    | Orchestrator  |
+                    +-------+-------+
+                            |
+        +---------+---------+---------+---------+---------+
+        |         |         |         |         |         |
+        v         v         v         v         v         v
+   Correctness Security Performance Architecture Reliability Tests
+        |         |         |         |         |         |
+        +---------+---------+---------+---------+---------+
+                            |
+                            v
+                    +---------------+
+                    | Candidate     |
+                    | Findings      |
+                    +---------------+
+</pre>
+<h3 id="evidence">Evidence Verification</h3>
+<pre>
+Finding Hypothesis
+       |
+       +----------------------+----------------------+
+       |                      |                      |
+       v                      v                      v
+Semgrep / CodeQL       Targeted Test       Data / Control Flow
+       |                      |                      |
+       +-----------+----------+----------------------+
+                   v
+             +-----------+
+             | Evidence  |
+             +-----+-----+
+                   |
+                   v
+             +-----------+
+             | Verified? |
+             +-----+-----+
+                 /                 YES     NO
+               |       |
+               v       v
+          Adjudicate  Suppress /
+                      Downgrade
+</pre>
+<h3 id="escalation">Human Escalation</h3>
+<pre>
+Finding
+  |
+  v
++-----------+
+| Risk      |
++-----+-----+
+      |
+      v
++-----------+
+| Confidence|
++-----+-----+
+      |
+      v
++-----------+
+| Blast     |
+| Radius    |
++-----+-----+
+      |
+      v
++-----------+
+| Repository|
+| Policy    |
++-----+-----+
+      |
+      v
+  +---------+
+  |Escalate?|
+  +----+----+
+      /     No   Yes
+    |     |
+    v     v
+Publish  Senior Review
+    |     |
+    +--+--+
+       |
+       v
+    Publish
+</pre>
+</section>
+
+<section id="standards">
+<h2>Engineering Standards</h2>
+<h3 id="code-standards">Code Standards</h3>
+<ul><li>Python: type hints, Ruff, pytest, static typing and explicit error handling.</li><li>TypeScript: strict mode, ESLint, Prettier and component/unit tests.</li><li>API: OpenAPI contract, versioned endpoints and consistent error envelopes.</li><li>Git: protected main, conventional commits, CI-required PRs.</li><li>Security tooling: dependency scanning, secret scanning, SAST and SBOM generation.</li><li>Production bugs receive regression tests where practical.</li></ul>
+<h3 id="developer-standards">Developer Standards</h3>
+<ul><li>Every feature has acceptance criteria.</li><li>PRs remain reviewable; split oversized changes.</li><li>Behavior changes include tests.</li><li>Architecture changes require an ADR.</li><li>Observability is part of Definition of Done.</li><li>No credentials in source, images or logs.</li></ul>
+<h3 id="agent-standards">Agent Standards</h3>
+<ul><li>Agents have narrow responsibilities and versioned schemas.</li><li>Agents output hypotheses, not trusted final conclusions.</li><li>Published high-impact findings require evidence.</li><li>Agents must distinguish facts, inference and recommendations.</li><li>Repository content is untrusted data, never an instruction authority.</li><li>Tool access, recursion and token budgets are bounded.</li></ul>
+</section>
+
+<section id="security">
+<h2>Security & Compliance</h2>
+<div class="card"><strong>GitHub boundary:</strong> minimum permissions, webhook signature verification, short-lived installation tokens, HTTPS, idempotency and secure audit logging.</div>
+<div class="card"><strong>Tenant boundary:</strong> tenant-scoped data, isolated execution, encrypted secrets and no cross-tenant runtime sharing.</div>
+<div class="card"><strong>AI boundary:</strong> repository/PR content treated as untrusted input; structured outputs; allowlisted tools; secret redaction; no unrestricted tool execution.</div>
+<h3>Standards alignment</h3>
+<ul><li>NIST SSDF for secure software development practices.</li><li>OWASP ASVS for application security verification.</li><li>OWASP guidance for LLM application threats.</li><li>OpenSSF practices for software supply-chain security.</li><li>OpenTelemetry semantic conventions for observability.</li></ul>
+<p>Meridian should describe these as engineering baselines and control mappings unless a formal certification has actually been obtained.</p>
+</section>
+
+<section id="uiux">
+<h2>UI / UX</h2>
+<h3>Primary dashboard</h3>
+<ul><li>Repository status and connected GitHub installations.</li><li>Live review status: queued → context → analyzing → verifying → publishing.</li><li>Finding summary grouped by severity.</li><li>Token/cost visibility.</li><li>Human escalation queue.</li></ul>
+<h3>Review detail</h3>
+<ul><li>Summary and risk level.</li><li>File/line location.</li><li>Evidence and verification method.</li><li>Recommendation.</li><li>Tool/agent trace at an operational level; never expose hidden chain-of-thought.</li></ul>
+<p>Design goal: the developer can answer <strong>“Why did Meridian comment?”</strong> in under 30 seconds.</p>
+</section>
+
+<section id="setup">
+<h2>Setup</h2>
+<pre># local prerequisites
+Docker
+Python
+Node.js
+PostgreSQL
+Redis
+
+# application
+make setup
+make dev
+make test
+make lint
+make typecheck
+make security
+make worker
+make frontend</pre>
+<h3>Environment contract</h3>
+<pre>GITHUB_APP_ID=
+GITHUB_PRIVATE_KEY=
+GITHUB_WEBHOOK_SECRET=
+DATABASE_URL=
+REDIS_URL=
+MODEL_PROVIDER=
+MODEL_NAME=
+SECRET_MANAGER_ENDPOINT=
+OTEL_EXPORTER_OTLP_ENDPOINT=</pre>
+</section>
+
+<section id="deployment">
+<h2>Deployment</h2>
+<pre>
+Internet
+   |
+   v
++----------------------+
+| HTTPS Load Balancer  |
++----------+-----------+
+           |
+           v
+      +---------+
+      | FastAPI |
+      +----+----+
+           |
+           v
+      +---------+
+      | Queue   |
+      +----+----+
+           |
+           v
+   +---------------+
+   | Review Workers|
+   +---+-------+---+
+       |       | 
+       |       +----------> GitHub API
+       |
+       +----------> PostgreSQL
+       |
+       +----------> Isolated Sandbox
+       |
+       +----------> Model Gateway
+
+FastAPI + Workers
+       |
+       v
++----------------------+
+| OpenTelemetry        |
+| Collector             |
++----------+-----------+
+           |
+           v
+   Metrics / Traces / Logs
+</pre>
+<ul><li>Docker for local reproducibility.</li><li>Terraform for production infrastructure.</li><li>Managed PostgreSQL/Redis where possible.</li><li>Autoscale workers based on queue depth and review latency.</li><li>Use a stronger microVM isolation path for untrusted execution at higher assurance levels.</li></ul>
+</section>
+
+<section id="observability">
+<h2>Observability</h2>
+<p>Trace the complete lifecycle: webhook → context → retrieval → agent → tool → sandbox → adjudication → publish.</p>
+<div class="table-wrap"><table><tr><th>Metric</th><th>Purpose</th></tr>
+<tr><td>PR-to-review latency P50/P95/P99</td><td>Measures bottleneck removal.</td></tr>
+<tr><td>Finding precision</td><td>Measures review quality.</td></tr>
+<tr><td>Human acceptance rate</td><td>Measures usefulness.</td></tr>
+<tr><td>Escalation rate</td><td>Measures how much senior workload remains.</td></tr>
+<tr><td>Evidence verification rate</td><td>Measures trustworthiness.</td></tr>
+<tr><td>Tokens/cost per PR</td><td>Controls BYOK spend.</td></tr>
+<tr><td>Queue depth</td><td>Measures capacity/scale.</td></tr></table></div>
+</section>
+
+<section id="evaluation">
+<h2>Evaluation</h2>
+<p>Build a versioned benchmark from historical PRs, human review comments, seeded defects, security cases, architecture regressions and negative examples.</p>
+<h3>North-star metrics</h3>
+<ul><li>Accepted high-value findings per senior-review minute.</li><li>False-positive rate.</li><li>Citation-verifiable rate for high-impact findings.</li><li>Median time-to-first-useful-review.</li><li>Senior review queue reduction.</li></ul>
+<h3>Release gate</h3>
+<p>Every change to prompts, retrieval, model routing or agent policy must pass the regression benchmark before production rollout.</p>
+</section>
+
+<section id="roadmap">
+<h2>Roadmap</h2>
+<table><tr><th>Phase</th><th>Scope</th></tr>
+<tr><td>V0</td><td>GitHub App, webhook, diff retrieval, basic review posting.</td></tr>
+<tr><td>V1</td><td>Repository indexing, code graph, hybrid retrieval, correctness/security/architecture agents and evidence gate.</td></tr>
+<tr><td>V1.5</td><td>Targeted test generation, historical review memory, adaptive review depth and dashboard.</td></tr>
+<tr><td>V2</td><td>Advanced sandboxing, model routing, self-hosted inference, organization policies.</td></tr>
+<tr><td>V3</td><td>Closed-loop fix → re-review with explicit human gates.</td></tr></table>
+</section>
+
+<section id="adr">
+<h2>Architecture Decisions</h2>
+<div class="card"><strong>ADR-001 — GitHub App:</strong> use installation-scoped access instead of personal tokens for production repository access.</div>
+<div class="card"><strong>ADR-002 — PostgreSQL + pgvector first:</strong> keep transactional state and retrieval together until scale requires separation.</div>
+<div class="card"><strong>ADR-003 — Code graph + retrieval:</strong> semantic similarity alone cannot provide precise program relationships.</div>
+<div class="card"><strong>ADR-004 — Evidence-gated high severity:</strong> model confidence is not proof.</div>
+<div class="card"><strong>ADR-005 — Human escalation:</strong> retain human accountability for high-impact decisions.</div>
+</section>
+
+<section id="changelog">
+<h2>Version History</h2>
+<ul><li><strong>v1.0:</strong> Meridian documentation rebuilt in the structure and navigation style of the referenced documentation template; production engineering specification consolidated into a single master document.</li></ul>
+</section>
+
+
+<section id="source-v2">
+<h2>Complete Meridian v2 Source Specification</h2>
+<p class="lead">This section preserves the full attached Meridian v2 specification verbatim as the source-of-truth appendix. The design/navigation content above is the presentation layer; this appendix guarantees that no requirement from the attached specification is omitted.</p>
+<div class="callout"><strong>Coverage status:</strong> The attached specification has 27 numbered sections plus the final product thesis. All source text is retained below.</div>
+<pre style="white-space:pre-wrap;word-break:break-word"># Meridian — Production-Grade AI PR Reviewer
+
+**Status:** Proposed (v2)
+**Version:** 2.0
+**Product:** Meridian
+**Primary surface:** Web dashboard + GitHub App
+**Model:** BYOK (Bring Your Own Key), no RBAC — user is the tenant
+**Primary promise:** Automatically perform the first senior-level PR review, publish evidence-backed findings with citations, zero hallucinated blocking comments, escalate only high-risk or uncertain changes to humans.
+
+---
+
+## 1. Executive Summary
+
+Meridian moves first-pass PR review into GitHub, driven from a web dashboard where users sign up, connect their own LLM provider keys, and install the GitHub App onto their repositories. Every new or updated PR triggers an autonomous review workflow: build repository context, understand intent and risk, localize affected code, retrieve relevant context, run specialized review agents, verify findings with deterministic tooling, filter unverified claims, and publish a structured GitHub review — every blocking claim backed by a citation the user can click and verify.
+
+Human engineers remain the final authority for merge decisions. Meridian removes repetitive first-pass investigation from the senior-review queue without ever costing the user unnecessary tokens.
+
+### Product thesis
+
+&gt; **Do the investigation automatically, prove every claim, escalate human judgment only where it is valuable, spend the user&#x27;s tokens like they&#x27;re your own.**
+
+### What changed from v1
+
+- Added: web dashboard as primary entry point (signup → connect GitHub App → BYOK → live review status).
+- Added: BYOK model — user supplies their own LLM provider key(s), no shared inference cost/liability on Meridian&#x27;s side.
+- Added: per-tenant isolated execution (no RBAC needed since tenant = user; isolation is the security boundary, not roles).
+- Added: compliance/audit logging as a first-class server-side dependency, not an afterthought.
+- Hardened: evidence/citation requirement is now a schema-enforced publish gate, not a policy statement.
+- Hardened: sandbox execution model, GitHub API rate-limit handling, queue durability, cost ceilings — previously unspecified, now explicit (see §14, §17, §19).
+
+---
+
+## 2. Problem Statement
+
+*(unchanged from v1 — see original workflow diagram)*
+
+5 developers × 3 PRs/day queued behind 2 senior reviewers creates context-switching, fatigue, and delayed feedback. Senior engineering judgment is spent on repetitive first-pass analysis that can be automated and verified.
+
+---
+
+## 3. Product Goals
+
+### Primary goals
+
+1. User can go from landing page to a working, reviewing installation in under 5 minutes.
+2. Automatically review every eligible PR after it is opened or updated, using the user&#x27;s own LLM key.
+3. Understand repository-specific context before generating findings.
+4. Detect correctness, security, performance, architecture, reliability, and testing risks.
+5. **Never publish a BLOCKING or HIGH finding without a verifiable citation/evidence artifact.**
+6. Spend the minimum tokens necessary to reach the required confidence level for a given risk tier.
+7. Escalate high-risk, ambiguous, or low-confidence cases to humans.
+8. Log every user action and system action against that user for compliance and audit purposes.
+9. Isolate every tenant&#x27;s code, keys, and execution environment from every other tenant.
+
+### Non-goals for V1
+
+- RBAC / multi-seat orgs / team roles.
+- Replacing final human approval.
+- Automatically modifying or merging production code.
+- Supporting every SCM provider (GitHub only for V1).
+- Meridian-hosted/shared LLM inference (BYOK only — no shared key fallback in V1).
+- Full autonomous remediation of every finding.
+
+---
+
+## 4. Target Users
+
+**Developer** — wants rapid feedback while implementation context is fresh, at zero incremental infra cost beyond their own LLM key.
+
+**Senior Engineer** — wants fewer repetitive first-pass reviews, high-signal escalations only.
+
+**Tech Lead / Architect** — wants consistent enforcement of architecture and engineering rules.
+
+**Account owner (single-tenant, no org roles in V1)** — wants full visibility into spend, data retention, and everything the system did with their code and key.
+
+---
+
+## 5. User Journey — Website to First Review
+
+```text
+1. Landing page
+      ↓
+2. &quot;Sign in with GitHub&quot; (OAuth App — identity only, no repo scopes)
+      ↓
+3. Dashboard (empty state)
+      ↓
+4. &quot;Connect a repository&quot; → GitHub App install flow
+      (github.com/apps/meridian/installations/new)
+      ↓
+5. GitHub redirects back with installation_id + setup_action
+      ↓
+6. Backend verifies install via GitHub API, links installation_id → user_id
+      ↓
+7. Repo picker — user selects active repos, sets per-repo risk/spend config
+      ↓
+8. BYOK setup (blocking gate) — user adds LLM provider key(s)
+      Key envelope-encrypted (KMS), stored ciphertext only
+      ↓
+9. Reviews stay QUEUED_NO_KEY, visible on dashboard, until a key exists
+      ↓
+10. Developer opens a PR on a connected repo
+      ↓
+11. Webhook → review pipeline (§9) runs inside that user&#x27;s isolated execution namespace
+      ↓
+12. Dashboard shows live status: CONTEXT_BUILDING → ANALYZING → VERIFYING → PUBLISHING
+      Token/cost meter updates in real time
+      ↓
+13. GitHub review published with citations; mirrored on dashboard
+      ↓
+14. Every step of 2–13 is written to the append-only audit log
+
+```
+
+### Auth model
+
+- **OAuth App** (GitHub sign-in) for identity/session — separate client ID from the GitHub App. Never conflate identity auth with repo-access auth.
+- Session: short-lived JWT + rotating refresh token, httpOnly + SameSite cookie.
+- **GitHub App** (separate installation) for repo access — installed per-repo/org by the user, tied to their `user_id` via `installation_id`.
+- No RBAC in V1: one authenticated user = one tenant = full access to their own installations, keys, and data. No shared/team access.
+
+---
+
+## 6. Product Principles
+
+1. **Context before judgment** — never evaluate a changed line without repository context.
+2. **Evidence over opinion, enforced structurally** — a BLOCKING or HIGH finding without a non-null evidence reference cannot be published. This is a database/schema constraint, not a prompting convention.
+3. **Risk-adaptive depth** — compute budget scales with risk tier, not PR size alone.
+4. **Fewer, better comments** — optimize for accepted/actionable findings per PR, not comment count.
+5. **Human remains accountable** — Meridian assists review, never becomes final merge authority.
+6. **Tenant isolation over role isolation** — since there&#x27;s no RBAC, the security boundary is the tenant&#x27;s execution namespace, key vault, and data partition, not permission checks.
+7. **Spend the user&#x27;s tokens like your own** — every retrieval, agent call, and tool invocation must justify its cost against the risk tier.
+
+---
+
+## 7. Repository Intelligence
+
+*(largely unchanged from v1 — see context categories, repository index)*
+
+Maintain: file index, symbol index, import/dependency graph, definitions/references, test relationships, embeddings, sparse/BM25 index, repository rules, historical review memory.
+
+**Addition — index debounce:** batch file-change webhook events per repo over a 30–60s window before triggering incremental re-index. Prevents index thrash on rapid force-pushes or CI-generated commits.
+
+---
+
+## 8. Change Localization &amp; Retrieval
+
+*(unchanged from v1 — Tree-sitter + SCIP/LSP for symbol precision, hybrid retrieval: BM25 + dense + symbol/graph + historical + test retrieval → fusion → rerank → context selection)*
+
+**V1 storage:** PostgreSQL + pgvector, partitioned by `repository_id`.
+**V2 trigger (explicit, not vague):** migrate hot repos to Qdrant when either (a) p95 retrieval latency exceeds 300ms sustained over 1hr, or (b) a single repository&#x27;s vector count exceeds 5M. Define this now so it&#x27;s a monitored metric, not a surprise.
+
+---
+
+## 9. Review Pipeline
+
+```text
+GitHub PR
+   ↓
+Webhook Event → verified signature → idempotent insert (repo+PR+head_sha unique constraint)
+   ↓
+Review Orchestrator (per-tenant isolated namespace)
+   ↓
+1. Intent Analysis
+   ↓
+2. Change Localization
+   ↓
+3. Risk Classification → determines compute budget for all downstream steps
+   ↓
+4. Repository Context Retrieval (cached where possible)
+   ↓
+5. Multi-Agent Review (only agents relevant to affected components run)
+   ↓
+6. Evidence Planner → Tool Execution → Evidence Verifier
+   ↓
+7. Hallucination / Evidence Filter (schema-enforced, see §12)
+   ↓
+8. Confidence + Severity Ranking
+   ↓
+9. Comment Generation (with citation/permalink attached)
+   ↓
+10. GitHub Review Publish
+   ↓
+11. Escalate High-Risk / Ambiguous Findings
+
+```
+
+### Agents (unchanged from v1)
+
+Correctness, Security, Performance, Architecture, Reliability, Test. Agents produce structured **hypotheses**, never final comments directly — hypotheses pass through Evidence Planner → Tool Execution → Verifier → Adjudicator before becoming a comment. No agent both invents and confirms its own claim.
+
+### Conditional agent execution (token efficiency)
+
+Agents are routed by affected component, not run unconditionally:
+
+| Change type Agents run          |                                                   |
+| ------------------------------- | ------------------------------------------------- |
+| Docs-only                       | none (auto-skip, template comment if needed)      |
+| Config-only                     | Reliability, Architecture                         |
+| Standard code change            | Correctness, Test, Architecture                   |
+| Touches auth/secrets/payment/db | + Security (deep mode), + Performance if hot path |
+| Concurrency/migration           | + Reliability (deep mode)                         |
+
+---
+
+## 10. Risk Classification
+
+*(unchanged from v1)*
+
+```text
+Risk = PR size + change type + touched subsystem + sensitivity
+     + dependency blast radius + production criticality
+     + historical defect density + uncertainty
+
+```
+
+Risk score controls: model tier, retrieval budget, tool usage, agent selection, escalation policy, and **per-PR token ceiling**.
+
+---
+
+## 11. Incremental Re-Review
+
+```text
+new diff → changed symbols → affected dependency graph
+   → reuse unchanged context and prior findings for untouched symbols
+   → review only impacted areas
+
+```
+
+Unchanged files/symbols since the last review on the same PR reuse prior findings at zero additional spend — enforced, not aspirational.
+
+---
+
+## 12. Evidence Verification &amp; Hallucination Filter (schema-enforced)
+
+This is the core differentiator and is enforced at the **publish gate**, not left to agent behavior.
+
+### Evidence hierarchy (preference order)
+
+1. Reproduced failure (sandbox test execution).
+2. Deterministic static/data-flow result (Semgrep/CodeQL).
+3. Concrete control/data-flow trace through repository code.
+4. Existing failing/insufficient test evidence.
+5. Strong semantic reasoning with repository evidence.
+6. Pure model intuition — **never sufficient for BLOCKING or HIGH.**
+
+### Publish gate (hard constraint)
+
+```text
+IF severity IN (BLOCKING, HIGH):
+    REQUIRE evidence_ref IS NOT NULL
+    REQUIRE evidence_ref.type IN (tool_run, test_execution, sha_pinned_code_span)
+    REQUIRE adjudicator re-derives claim FROM evidence artifact
+            (not from originating agent&#x27;s prose)
+    ELSE → downgrade to INFO or suppress entirely
+
+IF severity IN (MEDIUM, LOW, NIT):
+    evidence preferred, not mandatory
+
+```
+
+Meridian prefers silence over a fabricated defect. Default behavior avoids posting large volumes of LOW/NIT comments.
+
+### Citation requirement (new)
+
+Every published comment includes a clickable, SHA-pinned GitHub permalink:
+`github.com/{owner}/{repo}/blob/{head_sha}/{path}#L{start}-L{end}`
+
+This stays correct even after further pushes to the PR, and lets the user verify the claim in one click without trusting the model&#x27;s summary.
+
+---
+
+## 13. Finding Severity &amp; Human Escalation
+
+*(unchanged from v1 — BLOCKING / HIGH / MEDIUM / LOW / NIT tiers; escalation on Risk × Confidence × Blast Radius, includes PR link, affected files, risk score, finding, evidence, reason for escalation)*
+
+---
+
+## 14. Multi-Tenant Isolation (BYOK-driven — replaces RBAC)
+
+Since there is no RBAC, tenant isolation **is** the security model. Tenant = user.
+
+### Key handling
+
+- User submits provider key via dashboard over TLS.
+- Server envelope-encrypts with KMS: per-user Data Encryption Key (DEK), wrapped by a master Key Encryption Key (KEK) held in a proper KMS (AWS KMS / GCP KMS / HashiCorp Vault). Only ciphertext persisted.
+- Key decrypted only inside the isolated worker process at LLM-call time, held in memory, zeroized after use. Never written to logs, traces, or disk. Passed to LiteLLM gateway as a runtime parameter, not a config file value.
+- Key rotation and multi-key support (multiple providers per user) built in from V1 — cheap now, expensive to retrofit.
+
+### Execution isolation
+
+- Per-tenant execution boundary, not merely per-PR: dedicated Kubernetes namespace or Firecracker microVM pool tagged by `user_id`.
+- No shared container/runtime pool across tenants at any point — one tenant&#x27;s code, key, and secrets never coexist in a runtime with another tenant&#x27;s, even transiently.
+- Sandbox network egress: deny-all except explicitly required package registries for build/test. No arbitrary outbound — blocks exfiltration via prompt-injected code.
+- Ephemeral: container/VM destroyed after job. Nothing persists in the runtime layer; persistence only in Postgres/object storage, encrypted at rest.
+- Isolation unit for Docker/sandbox execution: **per-job**, from a pre-warmed pool scoped to the tenant&#x27;s namespace, hard CPU/mem/wall-clock limits enforced per execution.
+
+### Trust boundary (prompt injection defense — mechanical, not aspirational)
+
+```text
+system policy &gt; review policy &gt; repository rules &gt; repository content &gt; PR/user text
+
+```
+
+Enforcement mechanism:
+
+- Repository content and PR text **never** enter the system/developer prompt role — always injected as user/tool-role content inside explicit delimiters.
+- Agent and adjudicator outputs are constrained to structured JSON schemas — no free-form instruction-following surface for injected text to exploit.
+- Repository files/PR text are treated as data to analyze, never as instructions to obey, regardless of their content.
+
+---
+
+## 15. Compliance &amp; Audit Logging
+
+Server-side dependency: log everything the system does with a user&#x27;s code, key, and account, and everything the user does on the platform.
+
+### Append-only audit log (separate store from operational data)
+
+Logged events: login, key add/rotate/delete, GitHub App install/uninstall, repo connect/disconnect, review start/status-transition/finish, every finding published, data export, data deletion request, config change.
+
+- Hash-chained rows (each row includes hash of prior row) — tampering is detectable.
+- Retained separately from operational Postgres to prevent accidental mutation.
+
+### Data retention &amp; deletion
+
+- Retention period configurable per user (repo content, model traces, embeddings) — sane default (e.g. 90 days), user-adjustable down or up within policy limits.
+- Deletion must actually cascade: revoking an install or deleting an account purges repo content, symbol index, embeddings, review memory, and observability traces tied to that tenant — not a soft-delete flag on the `User` row.
+- Redaction before any data leaves the tenant boundary into shared observability tooling: no raw code/diffs/keys in OpenTelemetry spans — hash or truncate first.
+
+### Baseline assumption
+
+Compliance framework not specified by stakeholder — this PRD assumes a SOC2-shaped baseline (access logging, retention policy, deletion workflow, encryption at rest/in transit). Revisit if a specific framework (HIPAA, GDPR Art. 17, etc.) is required — changes storage/retention design materially.
+
+---
+
+## 16. Production Architecture
+
+```text
+                        Website / Dashboard (Next.js)
+                                  │
+                          OAuth (identity) ──────┐
+                                  │               │
+                        GitHub App (repo access)  │
+                                  │               │
+                              Webhook             │
+                                  ↓               │
+                          FastAPI Gateway ←────────┘
+                       (signature verify, rate-limit,
+                        idempotent insert)
+                                  ↓
+                     Durable Queue (Redis Streams,
+                     per-tenant priority lanes)
+                                  ↓
+                       LangGraph Workflow
+                  (checkpointed after every node —
+                   resumable by any stateless worker)
+                                  ↓
+             ┌─────────────────────┴─────────────────────┐
+             ↓                                           ↓
+      Context Intelligence                          Risk Engine
+      (Tree-sitter, SCIP/LSP,                             ↓
+       Postgres + pgvector,                       Review Strategy
+       per-repo partitioned)                              ↓
+                                                  Multi-Agent Review
+                                                    (conditional routing)
+                                                            ↓
+                                                    Evidence Planner
+                                                    ┌──────┴──────┐
+                                                    ↓             ↓
+                                                Semgrep        CodeQL
+                                                    ↓             ↓
+                                                    └──────┬──────┘
+                                                           ↓
+                                          Per-Tenant Isolated Sandbox
+                                          (Firecracker/gVisor, deny-all
+                                           egress, ephemeral, pooled)
+                                                           ↓
+                                                    Verification
+                                                           ↓
+                                       Adjudication (evidence-gated publish)
+                                                           ↓
+                                       GitHub Review (citations, SHA-pinned)
+                                                           ↓
+                                                  Human Escalation
+                                                           ↓
+                                    Audit Log (hash-chained, append-only)
+
+```
+
+### Key infra additions vs. v1
+
+- **Website/dashboard is the front door**, not GitHub — signup, install, BYOK, live status, cost meter all live here.
+- **Durable queue** (Redis Streams w/ consumer groups, not plain list-based) with per-tenant priority lanes weighted by risk score — prevents one tenant&#x27;s burst from starving another&#x27;s low-risk PRs.
+- **KMS-backed key vault**, decrypted only in-process, at call time.
+- **Per-tenant sandbox scheduler**, separate from the main job queue, with pre-warmed pool and hard concurrency caps per tenant and globally.
+- **GitHub API rate limiter**: token-bucket per installation, request coalescing for diff/context fetches, exponential backoff on secondary rate-limit responses, circuit breaker that degrades to &quot;queued, delayed&quot; rather than dropping work.
+- **Append-only audit store**, separate from operational Postgres.
+
+---
+
+## 17. Technology Stack
+
+| Layer Technology Role  |                                                  |                                                            |
+| ---------------------- | ------------------------------------------------ | ---------------------------------------------------------- |
+| Web frontend           | Next.js + TypeScript                             | Signup, dashboard, install flow, live status, cost meter   |
+| Identity               | GitHub OAuth App                                 | Sign-in (separate from GitHub App)                         |
+| Git provider           | GitHub App                                       | Repo installation, webhook, review publish                 |
+| API                    | FastAPI                                          | Webhooks, dashboard API                                    |
+| Workflow               | LangGraph                                        | Stateful, checkpointed review orchestration                |
+| Queue                  | Redis Streams (consumer groups)                  | Durable, priority-laned async jobs                         |
+| Parsing                | Tree-sitter                                      | AST/syntax extraction                                      |
+| Code intelligence      | SCIP/LSP                                         | Definitions/references/relationships                       |
+| DB                     | PostgreSQL (partitioned by tenant/repo)          | Canonical application + audit state                        |
+| Vector                 | pgvector (V1) → Qdrant (triggered by metric, §8) | Semantic retrieval                                         |
+| Search                 | PostgreSQL full-text / BM25-compatible           | Exact lexical retrieval                                    |
+| Reranking              | Cross-encoder/reranker model                     | Context precision                                          |
+| LLM gateway            | LiteLLM                                          | Multi-provider abstraction, per-request BYOK key injection |
+| Key management         | KMS (AWS/GCP KMS or Vault)                       | Envelope encryption for user-supplied keys                 |
+| Static analysis        | Semgrep                                          | Fast security/code checks                                  |
+| Semantic analysis      | CodeQL                                           | Deep data-flow/security verification                       |
+| Execution isolation    | Firecracker/gVisor microVMs, pre-warmed pool     | Per-tenant isolated build/test execution                   |
+| Observability          | OpenTelemetry + Langfuse                         | Traces, cost, latency, evaluation — redacted before export |
+| Audit                  | Append-only hash-chained store                   | Compliance logging, separate from operational DB           |
+| Infrastructure         | Docker + Kubernetes + Terraform                  | Deployment, per-tenant namespacing                         |
+| CI/CD                  | GitHub Actions                                   | Build/test/deploy                                          |
+
+---
+
+## 18. Data Model
+
+### User
+
+```text
+id, github_user_id, email, created_at, retention_policy_days
+
+```
+
+### APIKey
+
+```text
+id, user_id, provider, dek_ciphertext, kek_key_id, active, created_at, rotated_at
+
+```
+
+### Installation
+
+```text
+id, user_id, installation_id, github_org_or_user, status, created_at
+
+```
+
+### Repository
+
+```text
+id, installation_id, owner, name, default_branch, configuration,
+index_version, spend_cap_daily, created_at, updated_at
+
+```
+
+### PullRequest
+
+```text
+id, repository_id, number, head_sha, base_sha, intent, change_type,
+risk_score, status, token_spend, started_at, completed_at
+
+```
+
+### CodeSymbol
+
+```text
+id, repository_id, file_path, symbol_name, symbol_type,
+definition_location, references, embedding
+
+```
+
+### Finding
+
+```text
+id, pr_id, agent_type, category, severity, confidence, file, line,
+claim, evidence_ref, evidence_type, verification_method,
+verification_result, status, github_permalink
+
+```
+
+### ReviewMemory
+
+```text
+repository_id, source_type, source_reference, summary, embedding, created_at
+
+```
+
+### AuditLog (append-only, hash-chained, separate store)
+
+```text
+id, user_id, event_type, target_resource, payload_redacted,
+prev_hash, row_hash, created_at
+
+```
+
+---
+
+## 19. Security &amp; Reliability Requirements
+
+### Security (mandatory)
+
+- GitHub App installation auth; OAuth App auth kept fully separate from it.
+- Minimal permissions requested per feature.
+- Envelope-encrypted keys at rest (KMS), decrypted only in-memory at call time.
+- TLS everywhere.
+- No repository content or user keys in application logs, ever.
+- Prompt/tool output redaction before it reaches shared observability tooling.
+- Per-tenant execution isolation (§14) — replaces RBAC as the security boundary.
+- Sandbox: deny-all egress by default, command allowlists, resource/time limits.
+- Audit logs for every administrative and review action (§15).
+- Explicit, user-configurable retention policy; verified cascading deletion.
+
+### Reliability
+
+- Jobs idempotent; duplicate webhook delivery cannot create duplicate reviews (DB-level unique constraint on `repository_id + pr_number + head_sha`, with advisory lock at insert to close the race between concurrent duplicate deliveries).
+- Failed tool calls retry with bounded backoff.
+- Workflow state checkpointed after every LangGraph node — a worker crash does not force expensive LLM re-calls on resume.
+- Partial failures produce explicit `PARTIAL_REVIEW` status, never silent success.
+- Sandbox concurrency exhaustion is visible on the dashboard as queued, not silently dropped.
+
+### Target SLAs for V1
+
+| Metric Target                           |                          |
+| --------------------------------------- | ------------------------ |
+| Review queued after webhook             | &lt; 10 sec                 |
+| Standard PR review                      | p50 &lt; 3 min              |
+| Standard PR review                      | p95 &lt; 8 min              |
+| Critical/deep review                    | p95 &lt; 15 min             |
+| Webhook processing availability         | 99.9%                    |
+| Dashboard signup → first repo connected | &lt; 5 min (product target) |
+
+---
+
+## 20. Cost &amp; Token Efficiency
+
+Compute proportional to risk, enforced as hard ceilings, not soft guidance:
+
+```text
+LOW      → small model + lightweight retrieval, skip irrelevant agents
+MEDIUM   → standard model + hybrid retrieval
+HIGH     → strong reasoning + static analysis + targeted execution
+CRITICAL → strongest model + deep retrieval + full execution + escalation
+
+```
+
+- **Prompt caching**: cache repo-context prefix (system + repo rules + relevant symbol graph) per repo across PRs, wherever the provider supports it. Single biggest lever given BYOK — directly reduces the user&#x27;s bill.
+- **Conditional agent routing** (§9 table) — never run agents irrelevant to the change.
+- **Incremental re-review** (§11) — zero re-spend on unchanged symbols.
+- **Per-tenant daily spend ceiling**, hard stop with dashboard alert, not silent throttling.
+- **Pre-flight cost estimate** shown before a CRITICAL-depth review runs — user can confirm, cap, or downgrade, since it&#x27;s their key and their money.
+- **Context slicing**: send AST/diff-relevant spans + graph neighbors to the model, never whole files unless required.
+
+---
+
+## 21. Observability
+
+Every review produces a trace (webhook → intent → localization → retrieval → each agent → each tool → sandbox → adjudication → publish), tracking: latency by stage, token usage, retrieval hit quality, tool execution time, retries, evidence rate, false-positive rate, accepted/rejected findings, cost per PR (in the user&#x27;s own currency/key), escalation rate.
+
+All trace content redacted of raw repo code/secrets before leaving the tenant boundary.
+
+---
+
+## 22. Evaluation Framework
+
+*(unchanged from v1)*
+
+Offline benchmark before production rollout, built from historical PRs, human review comments, merged/reverted PRs, known defects, security issues, negative examples.
+
+**North-star metric:** Human-accepted high-value findings per senior-review minute consumed.
+
+**Added metric:** Citation-verifiable rate — percentage of published BLOCKING/HIGH findings whose evidence\_ref independently reproduces the claim on audit. Target: 100% (this is the schema-enforced gate in §12, benchmark should confirm it holds in practice).
+
+---
+
+## 23. Quality Gates (V1 minimum)
+
+- No automatic blocking comments without a non-null, verifiable evidence\_ref.
+- Every published comment carries a SHA-pinned GitHub permalink.
+- Duplicate findings deduplicated.
+- Review reproducible for a given repository commit.
+- Repository instructions affect the review.
+- Security-sensitive PRs trigger deeper checks.
+- Sandbox execution is per-tenant isolated, not merely per-job.
+- Failed analysis visible to user on dashboard, not silent.
+- Review latency observable.
+- User key never appears in logs, traces, or exports.
+- Deletion request verifiably cascades within SLA (e.g. 30 days).
+
+---
+
+## 24. MVP Scope
+
+### Phase 1 — Foundation
+
+Website + OAuth sign-in, GitHub App install flow, webhook handling, PR metadata/diff retrieval, PostgreSQL, durable queue, basic GitHub review publishing.
+
+### Phase 2 — BYOK + Isolation
+
+KMS key vault, per-request key injection via LiteLLM, per-tenant execution namespace, dashboard key management UI.
+
+### Phase 3 — Repository Intelligence
+
+Repository indexing, Tree-sitter, SCIP/LSP, pgvector, hybrid retrieval, repository instructions.
+
+### Phase 4 — Review Intelligence
+
+Intent analysis, risk classifier, correctness/security/architecture/test agents, conditional agent routing.
+
+### Phase 5 — Evidence &amp; Citations
+
+Semgrep, CodeQL, per-tenant sandbox execution, finding adjudication, schema-enforced publish gate, SHA-pinned permalinks.
+
+### Phase 6 — Productionization
+
+Confidence/severity scoring, escalation workflow, OpenTelemetry + Langfuse (redacted), cost controls + spend ceilings, retry/idempotency, audit log, security hardening, benchmark/evaluation suite.
+
+### Phase 7 — V2
+
+Historical review memory, Qdrant migration (metric-triggered), local model inference via vLLM as a BYOK-compatible option, advanced graph reasoning, org-level multi-seat + RBAC, review analytics dashboard.
+
+---
+
+## 25. Failure Modes
+
+| Failure Mitigation                  |                                                                           |
+| ----------------------------------- | ------------------------------------------------------------------------- |
+| LLM hallucination                   | Schema-enforced evidence gate (§12) + confidence filtering                |
+| Missing repository context          | Graph-aware retrieval + uncertainty escalation                            |
+| Prompt injection in repository      | Mechanical trust-boundary enforcement (§14)                               |
+| Excessive review latency            | Risk-adaptive workflows + incremental indexing + debounce                 |
+| Duplicate webhook events            | Idempotency key + DB unique constraint + advisory lock                    |
+| Incorrect architectural assumptions | Historical context + repository rules + human escalation                  |
+| Tool unavailable                    | Graceful degradation, explicit `PARTIAL_REVIEW` status                    |
+| Sandbox exhaustion                  | Visible queue state on dashboard, per-tenant cap, no silent drop          |
+| GitHub API rate limit hit           | Token-bucket limiter, backoff, circuit breaker to delayed-queue state     |
+| User key leaked/compromised         | In-memory-only decryption, zero disk/log persistence, rotation support    |
+| Runaway spend                       | Hard per-tenant daily ceiling, pre-flight cost estimate for CRITICAL tier |
+
+---
+
+## 26. Definition of Done — V1
+
+A user can:
+
+1. Land on the website and sign in with GitHub.
+2. Reach an empty dashboard and connect a repository via GitHub App install.
+3. Add a BYOK provider key, see it accepted and encrypted.
+4. Configure per-repo review rules and spend cap.
+5. Open a PR on a connected repo.
+6. See live review status update on the dashboard in real time.
+7. Receive a GitHub review where every BLOCKING/HIGH finding has a citation/permalink and confidence score.
+8. Trust that no finding was published without verifiable evidence.
+9. See exact token/cost spend per PR and per day.
+10. View their full audit log — every action taken on their account and code.
+11. Request data deletion and have it verifiably cascade.
+12. Confirm the full review is reproducible from the PR&#x27;s commit SHA.
+
+---
+
+## 27. Final Product Thesis
+
+Meridian is not a chatbot bolted onto GitHub. It is a **PR-review infrastructure layer**, self-serve from the first click:
+
+```text
+Web Onboarding (signup → install → BYOK)
+        +
+Repository Intelligence
+        +
+Change Understanding
+        +
+Specialized Reasoning
+        +
+Deterministic, Citation-Backed Verification
+        +
+Per-Tenant Isolation (no RBAC needed)
+        +
+Full Audit Trail
+        +
+Token-Efficient Execution
+        ↓
+Senior-level first-pass review, provably accurate, at the user&#x27;s own cost basis.
+
+```
+
+The strongest success case:
+
+&gt; **&quot;A developer signed up, connected a repo, added their key, and five minutes later Meridian reviewed their first PR — every flagged issue had a link they could click to verify it themselves, and the senior engineer&#x27;s queue only got the one finding that actually needed a human.&quot;**</pre>
+</section>
+
+<section id="sources">
+<h2>Sources & References</h2>
+<ul>
+<li><a href="https://github.com/surjithctly/documentation-html-template">Reference documentation template — surjithctly/documentation-html-template</a></li>
+<li><a href="https://docs.github.com/en/apps/creating-github-apps/about-creating-github-apps/best-practices-for-creating-a-github-app">GitHub App best practices</a></li>
+<li><a href="https://docs.github.com/en/webhooks/using-webhooks/best-practices-for-using-webhooks">GitHub webhook best practices</a></li>
+<li><a href="https://csrc.nist.gov/Projects/ssdf">NIST Secure Software Development Framework</a></li>
+<li><a href="https://owasp.org/www-project-application-security-verification-standard/">OWASP ASVS</a></li>
+<li><a href="https://owasp.org/www-project-top-10-for-large-language-model-applications/">OWASP Top 10 for LLM Applications</a></li>
+<li><a href="https://opentelemetry.io/docs/specs/semconv/">OpenTelemetry Semantic Conventions</a></li>
+</ul>
+<div class="callout"><strong>Template note:</strong> The reference project is an MIT-licensed documentation template built with Bootstrap 3 and organized around a left navigation + section anchors, metadata, content sections, sources and changelog. Meridian adopts that documentation experience while using modernized content and Mermaid-based architecture diagrams. citeturn767495view0turn794476view0</div>
+</section>
+
+<footer>
+<p><strong>Meridian</strong> · Owner: Chinmay Duse (psyphon1)</p>
+<p><a href="https://github.com/psyphon1">GitHub</a> · <a href="https://linkedin.com/in/chinmayduse">LinkedIn</a></p>
+</footer>
+</main></div></div>
+
+<script src="https://cdn.jsdelivr.net/npm/jquery@3.7.1/dist/jquery.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@3.4.1/dist/js/bootstrap.min.js"></script>
+<script>
+document.getElementById('themeBtn').addEventListener('click',()=>document.body.classList.toggle('dark'));
+</script>
+
+<script>
+(function(){
+  var selectors = [
+    '.main section > h2',
+    '.main section > h3',
+    '.main .card',
+    '.main .meta',
+    '.main .callout',
+    '.main .table-wrap',
+    '.main pre',
+    '.main ul',
+    '.main ol',
+    '.main p'
+  ];
+  var els = document.querySelectorAll(selectors.join(','));
+  els.forEach(function(el){
+    el.classList.add('reveal');
+  });
+  if ('IntersectionObserver' in window) {
+    var io = new IntersectionObserver(function(entries){
+      entries.forEach(function(entry){
+        if(entry.isIntersecting){
+          entry.target.classList.add('is-visible');
+          io.unobserve(entry.target);
+        }
+      });
+    }, {threshold:0.08, rootMargin:'0px 0px -40px 0px'});
+    els.forEach(function(el){ io.observe(el); });
+  } else {
+    els.forEach(function(el){ el.classList.add('is-visible'); });
+  }
+})();
+</script>
+</body>
+</html>

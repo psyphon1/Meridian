@@ -1,0 +1,45 @@
+version: 2
+updates:
+  # Python packages (FastAPI, LangGraph, LiteLLM, etc.)
+  - package-ecosystem: pip
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+    groups:
+      python-minor-patch:
+        update-types: ["minor", "patch"]
+    reviewers:
+      - psyphon1
+    labels: ["dependencies", "security"]
+
+  # JS/TS workspace (Next.js web app, shared packages)
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+    groups:
+      npm-minor-patch:
+        update-types: ["minor", "patch"]
+    reviewers:
+      - psyphon1
+    labels: ["dependencies", "security"]
+
+  # GitHub Actions workflows
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    reviewers:
+      - psyphon1
+    labels: ["dependencies", "ci"]
+
+  # Docker base images (infra/docker, sandbox images)
+  - package-ecosystem: docker
+    directory: /infra/docker
+    schedule:
+      interval: weekly
+    reviewers:
+      - psyphon1
+    labels: ["dependencies", "security"]
