@@ -4,7 +4,7 @@
 ---
 Created: 2026-09-13
 Author: Chinmay Duse (psyphon1)
-Version: 1.0.0
+Version: 1.1.0
 Last Updated: 2026-09-13
 Status: accepted
 ---
@@ -109,6 +109,7 @@ apps/worker/
 ├── __init__.py
 ├── main.py                # Entrypoint: asyncio.run, signal handling, graceful drain
 ├── consumer.py            # XREADGROUP loop, priority ordering, idempotent processing, XACK
+├── outbox_publisher.py    # Polls webhook_deliveries WHERE enqueued=false (SKIP LOCKED), XADD, mark enqueued
 └── janitor.py             # XAUTOCLAIM stalled entries, dead-letter, XTRIM
 ```
 
@@ -157,10 +158,11 @@ packages/github/
 ```
 packages/orchestration/
 ├── __init__.py
-├── producer.py            # XADD to priority streams
+├── ingestion.py           # ingest_webhook() service function: verify → advisory lock → idempotency → persist outbox row → commit
+├── producer.py            # XADD to priority streams (called by outbox publisher)
 ├── consumer.py            # XREADGROUP, consumer group management
 ├── streams.py             # Stream name constants, dead-letter, XTRIM config
-└── messages.py            # JobMessage Pydantic schema (serialized as JSON in stream)
+└── messages.py            # JobMessage Pydantic schema (serialized as JSON in stream, includes traceparent)
 ```
 
 ### 3.7 `packages/observability/`
@@ -185,30 +187,67 @@ packages/security/
 
 ## 4. Webhook Handler Flow
 
+> **Architecture note — Transactional Outbox (ADR-006):** The original design performed `XADD` to Redis *inside* the DB transaction (a dual-write). This couples webhook availability to Redis health: if Redis is down, every webhook returns 500 and GitHub eventually stops retrying. The revised flow uses the **transactional outbox pattern**: the handler writes only to PostgreSQL (the `webhook_deliveries` row doubles as the outbox with `enqueued = false`), commits, and returns 200. A separate outbox publisher coroutine in the worker process polls for `enqueued = false` rows, calls `XADD`, and marks `enqueued = true`. This decouples Redis from the 10-second critical path. See ADR-006.
+
 ### 4.1 Step-by-Step
+
+The route handler (`apps/api/routers/webhooks.py`) is **thin**: it reads the raw request, extracts headers, and delegates all logic to a service function `packages/orchestration/ingestion.py:ingest_webhook(...)` which manages its own explicit DB transaction via `async with session.begin():`. The route handler maps the returned `IngestResult` to an HTTP status + error envelope. No business logic in the route (per `CODE_STANDARDS.md §1.1`).
 
 ```
 POST /v1/webhooks/github arrives
   │
-  ├─ 1. Read raw body + headers (do NOT parse JSON yet)
-  ├─ 2. Extract: X-Hub-Signature-256, X-GitHub-Event, X-GitHub-Delivery
+  ├─ 1. Read raw body + headers via `await request.body()` (do NOT parse JSON yet)
+  │     — FastAPI route param is `request: Request`, not a Pydantic model, to access raw bytes
+  ├─ 2. Extract headers: X-Hub-Signature-256, X-GitHub-Event, X-GitHub-Delivery
+  │     └─ Missing X-Hub-Signature-256 → 400 {"error": {"type":"webhook","code":"webhook.signature_missing",...}}
   ├─ 3. Verify HMAC-SHA256(raw_body, webhook_secret) — timing-safe compare
-  │     └─ FAIL → return 401 (log: signature_verify_failed, delivery_id)
+  │     └─ FAIL → 401 {"error": {"type":"webhook","code":"webhook.signature_invalid",...}}
+  │        (401 not 400: GitHub treats bad signatures as auth failures; log: signature_verify_failed, delivery_id)
   ├─ 4. Event/action filter:
   │     ├─ X-GitHub-Event in {pull_request, installation, installation_repositories}?
   │     └─ Action in allowed set for that event?
-  │     └─ NO → return 200 + "ignored" (fast reject, no DB write)
+  │     └─ NO → 200 {"status":"ignored"} (fast reject, no DB write, no Redis)
   ├─ 5. Parse JSON body → typed Pydantic model (per event type)
-  ├─ 6. Open DB transaction:
-  │     ├─ a. pg_advisory_xact_lock(hash(repository_id + pr_number + head_sha))
-  │     ├─ b. Check webhook_deliveries for X-GitHub-Delivery — if exists → 200 (idempotent)
-  │     ├─ c. Insert webhook_delivery (delivery_id, event, action, payload_ref)
-  │     ├─ d. Determine priority tier (default: MEDIUM for Phase 1)
-  │     ├─ e. XADD job to meridian:reviews:{priority} stream
-  │     ├─ f. Commit transaction (releases advisory lock)
-  │     └─ g. Return 200
-  └─ Error: any exception → 500, structured log, transaction rollback (no partial state)
+  │     └─ Parse error → 400 {"error": {"type":"webhook","code":"webhook.payload_invalid",...}}
+  ├─ 6. Delegate to service: ingest_webhook(raw_body, headers, payload_model) → IngestResult
+  │     Inside the service's explicit `async with session.begin():` transaction:
+  │     ├─ a. pg_advisory_xact_lock(hashtextextended(repo_id || ':' || pr_number || ':' || head_sha, 0))
+  │     │     — 64-bit BIGINT lock key; collisions astronomically rare (ADR-006)
+  │     ├─ b. Check webhook_deliveries for X-GitHub-Delivery — if exists → 200 (idempotent replay)
+  │     ├─ c. SECOND idempotency check: query review_runs for existing RECEIVED run on
+  │     │     (pull_request_id, head_sha) — if exists → 200 (duplicate_pr_sha_replay, no new run)
+  │     ├─ d. Insert webhook_delivery (delivery_id, event, action, payload, payload_size_bytes, enqueued=false)
+  │     ├─ e. Commit transaction (releases advisory lock) — Redis is NOT in the critical path
+  │     └─ f. Return IngestResult(status="accepted", delivery_id=...)
+  ├─ 7. Route handler maps IngestResult → 200 response
+  └─ Error: any exception → 500 {"error":{"type":"internal","code":"internal_error",...}},
+           structured log, transaction rollback (no partial state — outbox row not committed)
 ```
+
+**Why the transactional outbox matters:** With the dual-write approach, if `XADD` succeeds but the DB commit fails (connection drop), a phantom job exists in Redis with no payload row — the worker fails permanently. Conversely, if Redis is down, `XADD` throws, the transaction rolls back, and GitHub sees 500s until it exhausts retries (~24h). The outbox pattern eliminates both failure modes: the handler's only external dependency is PostgreSQL.
+
+### 4.2 Outbox Publisher (in worker process — ADR-006)
+
+A coroutine started alongside the consumer loop in the worker process:
+
+```
+outbox_publisher_loop (every ~1s):
+  ├─ SELECT id, delivery_id, event, action, installation_id, repository_id,
+  │         repository_full_name, pr_number, pr_title, head_sha, base_sha
+  │  FROM webhook_deliveries
+  │  WHERE enqueued = false
+  │  ORDER BY created_at
+  │  LIMIT 100
+  │  FOR UPDATE SKIP LOCKED          ← partitions work across worker instances
+  ├─ For each row:
+  │    ├─ Build JobMessage (reference, not full payload) + inject traceparent
+  │    ├─ XADD to meridian:reviews:{priority} stream
+  │    └─ UPDATE webhook_deliveries SET enqueued = true, enqueued_at = now() WHERE id = ?
+  ├─ Commit the SKIP LOCKED transaction
+  └─ If no rows found: asyncio.sleep(1) then retry
+```
+
+`FOR UPDATE SKIP LOCKED` ensures multiple worker instances don't claim the same rows. The publisher runs in the worker process (not the API process) so that API scaling doesn't multiply publishers unpredictably and so that ingestion is fully decoupled from Redis availability.
 
 ### 4.2 Allowed Events & Actions
 
@@ -233,11 +272,14 @@ POST /v1/webhooks/github arrives
   "head_sha": "abc123def456",
   "base_sha": "def789ghi012",
   "priority": "medium",
+  "traceparent": "00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01",
   "enqueued_at": "2026-09-13T12:00:00Z"
 }
 ```
 
 The job message is a **reference**, not the full payload. The worker reads the full payload from the `webhook_deliveries` table by `delivery_id`. This keeps stream entries small and avoids duplicating large diffs in Redis.
+
+**`traceparent` field (ADR-006):** A single W3C traceparent string (`00-<trace-id>-<span-id>-<flags>`) carrying the OpenTelemetry trace context from the API process to the worker process. The outbox publisher injects the current span context via `opentelemetry.propagate.inject()`; the worker extracts it via `opentelemetry.propagate.extract()` and creates child spans. This preserves the parent-child span relationship across the Redis Streams process boundary, giving end-to-end distributed traces for `webhook.receive → worker.process`. The field is `str | None` (nullable for cases where no active span exists, e.g., tests).
 
 ---
 
@@ -415,17 +457,24 @@ All tables use `TIMESTAMP WITH TIME ZONE` for timestamps. Primary keys are `BIGS
 
 Hash chain: `current_hash = SHA256(previous_hash || event_type || actor || payload || created_at)`. The first row has `previous_hash = "0" * 64`.
 
-#### `webhook_deliveries` (idempotency table — not in original 13)
+**Sequence allocation (ADR-006):** `sequence_number` is populated by a PostgreSQL `SEQUENCE` (`audit_events_seq`) via `nextval()` before insert. Sequences are atomic and non-blocking under concurrent inserts. Gaps may appear on transaction rollback (the sequence value is consumed but the row never commits) — this is acceptable because hash-chain integrity depends on correct `previous_hash → current_hash` linking, not on contiguous numbering. The `sequence_number` column is `UNIQUE NOT NULL` (not necessarily contiguous).
+
+#### `webhook_deliveries` (idempotency + outbox table — not in original 13)
 | Column | Type | Notes |
 |---|---|---|
 | id | BIGSERIAL PK | |
 | delivery_id | VARCHAR(255) | UNIQUE, NOT NULL (X-GitHub-Delivery) |
 | event | VARCHAR(50) | NOT NULL |
 | action | VARCHAR(50) | NOT NULL |
-| payload | JSONB | NOT NULL (full webhook payload) |
-| processed | BOOLEAN | DEFAULT false |
+| payload | JSONB | NOT NULL (full webhook payload; PostgreSQL TOAST handles large values) |
+| payload_size_bytes | INTEGER | NOT NULL (size of raw payload for monitoring/alerting on oversized webhooks) |
+| processed | BOOLEAN | DEFAULT false (set true by worker after review_run created) |
 | processed_at | TIMESTAMPTZ | nullable |
+| enqueued | BOOLEAN | DEFAULT false (outbox flag — set true by outbox publisher after XADD) |
+| enqueued_at | TIMESTAMPTZ | nullable (set when XADD succeeds) |
 | created_at | TIMESTAMPTZ | |
+
+This table serves **double duty** as both the idempotency key store and the transactional outbox (ADR-006). The webhook handler inserts a row with `enqueued = false`; the outbox publisher coroutine polls `WHERE enqueued = false FOR UPDATE SKIP LOCKED`, calls `XADD` to Redis, then sets `enqueued = true`. No separate outbox table is needed.
 
 ### 5.2 Indexes
 
@@ -434,8 +483,8 @@ Hash chain: `current_hash = SHA256(previous_hash || event_type || actor || paylo
 | pull_requests | UNIQUE(repository_id, github_pr_number) |
 | repositories | UNIQUE(github_repo_id) |
 | installations | UNIQUE(github_installation_id) |
-| webhook_deliveries | UNIQUE(delivery_id) |
-| review_runs | INDEX(pull_request_id), INDEX(status) |
+| webhook_deliveries | UNIQUE(delivery_id), INDEX(enqueued) WHERE enqueued = false (outbox publisher hot path) |
+| review_runs | INDEX(pull_request_id), INDEX(status), INDEX(pull_request_id, head_sha) (second idempotency check — ADR-006) |
 | findings | INDEX(review_run_id), INDEX(severity) |
 | audit_events | UNIQUE(sequence_number), INDEX(event_type) |
 | code_symbols | INDEX(file_id), HNSW vector index on embedding (Phase 2) |
@@ -469,19 +518,27 @@ def generate_app_jwt(private_key: str, app_id: int) -> str:
 
 ```python
 class InstallationTokenCache:
-    """In-memory cache of installation access tokens, keyed by installation_id."""
-    
+    """Two-layer (L1 in-memory + L2 Redis) shared cache of installation access tokens."""
+
+    _local: dict[int, tuple[str, float]]  # installation_id → (token, expires_at)
+    _redis: Redis
+
     async def get_token(self, installation_id: int) -> str:
-        # Return cached token if not near expiry
-        # Otherwise call POST /app/installations/{id}/access_tokens
-    
+        # 1. Check L1 (in-process dict) — fast path, no network
+        # 2. Check L2 (Redis key: meridian:install_token:{id}, TTL = expiry - 60s)
+        # 3. Cache miss → fetch from GitHub API, write to both L1 and L2
+
     async def invalidate(self, installation_id: int) -> None:
+        # DEL Redis key (propagates to all processes)
+        # Clear local L1 entry
         # Called on 401 response
 ```
 
-- Token TTL = expiry timestamp - 60s safety margin
-- On 401 from any GitHub API call: invalidate cache, regenerate token, retry once
-- Cache is per-process (in-memory); acceptable for Phase 1
+- **L1**: per-process in-memory dict — avoids Redis round-trip for hot tokens (<1μs lookup)
+- **L2**: Redis `SET meridian:install_token:{installation_id} <token> EX <ttl>` where `ttl = expiry - 60s` safety margin — shared across all API + worker processes
+- On 401 from any GitHub API call: `invalidate()` deletes the Redis key (so all processes see the invalidation) and clears the local L1 entry, then regenerates and retries once
+- Cache coherence: L1 entries have the same expiry as the L2 TTL; a local TTL check evicts stale L1 entries without a Redis call
+- All processes (API + workers) share the same Redis-backed L2 cache, eliminating redundant GitHub token fetches across process boundaries (ADR-006)
 
 ### 6.3 Webhook Verification (`packages/github/webhooks.py`)
 
@@ -550,7 +607,12 @@ MeridianError (base)
 
 ```python
 async def enqueue_job(redis: Redis, priority: str, job: JobMessage) -> str:
-    """XADD a job message to the appropriate priority stream. Returns stream ID."""
+    """XADD a job message to the appropriate priority stream. Returns stream ID.
+
+    Called by the outbox publisher (apps/worker/outbox_publisher.py), NOT by the
+    webhook handler directly. This decouples Redis from the 10-second webhook
+    critical path (ADR-006).
+    """
     stream = f"meridian:reviews:{priority}"
     msg_id = await redis.xadd(stream, {"data": job.model_dump_json()})
     return msg_id
@@ -597,12 +659,19 @@ async def janitor_loop(redis: Redis):
         await asyncio.sleep(60)
 ```
 
-### 7.6 At-Least-Once Semantics
+### 7.6 Delivery Semantics
 
+**Webhook → Redis (via outbox publisher):**
+- The webhook handler writes only the `webhook_deliveries` outbox row (`enqueued = false`) and commits — this is the atomic step
+- The outbox publisher polls `WHERE enqueued = false FOR UPDATE SKIP LOCKED`, calls `XADD`, then marks `enqueued = true` in the same transaction
+- If the publisher crashes after `XADD` but before marking `enqueued = true`: the job is in Redis *and* the row is still `enqueued = false` → on restart, the publisher re-XADDs. The worker's idempotency check (`delivery_id` unique + `review_runs(pull_request_id, head_sha)` check) prevents duplicate review runs
+- If Redis is down: the handler still returns 200 to GitHub; the publisher retries when Redis recovers. **Decoupled availability**
+
+**Redis → Worker (consumer):**
 - A message is only `XACK`'d **after** the DB transaction commits
 - If the worker crashes before `XACK`: the message remains in the PEL
 - On restart or janitor sweep: `XAUTOCLAIM` re-delivers the message
-- The consumer is idempotent: `webhook_deliveries.delivery_id` unique constraint prevents duplicates
+- The consumer is idempotent: `webhook_deliveries.delivery_id` unique constraint + second idempotency check on `review_runs(pull_request_id, head_sha)` prevents duplicates
 - `XTRIM MAXLEN 10000` keeps streams bounded
 
 ---
@@ -616,26 +685,28 @@ Worker starts
   ├─ Connect to Redis (packages/config/redis.py)
   ├─ Connect to PostgreSQL (packages/config/database.py)
   ├─ Ensure consumer groups exist (XGROUP CREATE ... MKSTREAM on all 3 streams)
+  ├─ Start outbox_publisher coroutine (polls webhook_deliveries, XADD, marks enqueued)
   ├─ Start janitor coroutine
   ├─ Register signal handlers (SIGTERM → graceful drain)
-  └─ Main loop (XREADGROUP BLOCK 5000):
+  └─ Main consumer loop (XREADGROUP BLOCK 5000):
        ├─ Read from meridian:reviews:high (if messages)
        ├─ Read from meridian:reviews:medium (if high empty)
        ├─ Read from meridian:reviews:low (if medium empty)
        ├─ For each message:
        │    ├─ Parse JobMessage from stream fields
+       │    ├─ Extract traceparent → set OTel span context (ADR-006)
        │    ├─ Fetch full webhook payload from webhook_deliveries by delivery_id
        │    ├─ DB transaction:
        │    │    ├─ Upsert installation (from payload)
        │    │    ├─ Upsert repository (from payload)
        │    │    ├─ Upsert pull_request (from payload)
        │    │    ├─ Create review_run (status=RECEIVED, risk_tier=MEDIUM)
-       │    │    ├─ Insert audit_event (hash-chained)
+       │    │    ├─ Insert audit_event (hash-chained, sequence via nextval(audit_events_seq))
        │    │    ├─ Mark webhook_delivery.processed = true
        │    │    └─ Commit
        │    ├─ XACK the message (after commit = at-least-once)
        │    └─ Log: job_processed {delivery_id, run_id, stream, duration_ms}
-       └─ On SIGTERM: stop reading, finish current message, XACK, drain, exit 0
+       └─ On SIGTERM: stop reading, finish current message, XACK, drain outbox publisher, drain janitor, exit 0
 ```
 
 ---
@@ -675,10 +746,40 @@ async def lifespan(app: FastAPI):
 
 ### 9.3 Error Envelope
 
-All API errors follow the consistent envelope from `CODE_STANDARDS.md §3`:
+All API errors follow a Stripe-style structured envelope (ADR-006, updating `CODE_STANDARDS.md §3`):
 ```json
-{"error": {"code": "...", "message": "...", "details": {...}}}
+{
+  "error": {
+    "type": "webhook",
+    "code": "webhook.signature_invalid",
+    "message": "Webhook signature verification failed.",
+    "param": "X-Hub-Signature-256",
+    "request_id": "req_01J...",
+    "doc_url": "https://docs.meridian.dev/api/errors#webhook-signature-invalid"
+  }
+}
 ```
+
+| Field | Purpose |
+|---|---|
+| `type` | Broad error category: `webhook`, `auth`, `rate_limit`, `validation`, `internal` |
+| `code` | Machine-readable specific error (namespaced: `webhook.signature_invalid`, `webhook.event_ignored`, etc.) |
+| `message` | Human-readable description (no secrets, no stack traces) |
+| `param` | The input parameter that caused the error (e.g., `X-Hub-Signature-256`); `null` when not applicable |
+| `request_id` | Correlation ID for tracing (maps to OTel trace ID / `X-GitHub-Delivery`) |
+| `doc_url` | Link to error documentation (populated when docs exist; `null` otherwise) |
+
+**Webhook error code taxonomy:**
+
+| Code | HTTP | When |
+|---|---|---|
+| `webhook.signature_missing` | 400 | `X-Hub-Signature-256` header absent |
+| `webhook.signature_invalid` | 401 | HMAC verification failed (401: auth failure per GitHub convention, not 400) |
+| `webhook.event_ignored` | 200 | Event/action not in allowed set (success, not error — body: `{"status":"ignored"}`) |
+| `webhook.payload_invalid` | 400 | JSON parse error or Pydantic validation failure |
+| `webhook.idempotent_replay` | 200 | Same `delivery_id` already processed (success — body: `{"status":"duplicate"}`) |
+| `webhook.duplicate_pr_sha` | 200 | Different `delivery_id`, same `(pr_number, head_sha)` already has RECEIVED run (success) |
+| `internal_error` | 500 | Unexpected exception (no internal details leaked) |
 
 No secrets, stack traces, or internal identifiers in error responses.
 
@@ -723,7 +824,8 @@ CONSUMER_GROUP = "meridian-workers"
 
 ### 11.2 Tracing (`packages/observability/tracing.py`)
 
-- OpenTelemetry tracer with spans for: `webhook.receive`, `webhook.verify`, `webhook.enqueue`, `worker.consume`, `worker.process`
+- OpenTelemetry tracer with spans for: `webhook.receive`, `webhook.verify`, `webhook.enqueue` (outbox publisher), `worker.consume`, `worker.process`
+- **Cross-process trace context propagation (ADR-006):** The W3C `traceparent` is carried in the `JobMessage` schema (not in Redis Streams metadata). The outbox publisher injects the current span context via `opentelemetry.propagate.inject()` into the `traceparent` field before `XADD`. The worker extracts it via `opentelemetry.propagate.extract()` on the `JobMessage.traceparent` field and creates a child span. This preserves the parent-child span relationship across the API→worker process boundary.
 - Trace attributes: `tenant_id`, `repository_id`, `review_run_id`, `stage`, `latency_ms`
 - No raw source code or secrets in trace attributes (per `OBSERVABILITY.md §3`)
 
@@ -738,20 +840,26 @@ CONSUMER_GROUP = "meridian-workers"
 | `test_hmac_verify.py` | Valid signature, invalid signature, missing header, wrong format, empty body |
 | `test_jwt_generation.py` | Correct JWT structure, expiry, issuer, algorithm |
 | `test_event_filter.py` | Allowed events pass, disallowed rejected, action filtering per event |
-| `test_job_message.py` | Serialization/deserialization roundtrip, field validation |
-| `test_advisory_lock.py` | Lock acquisition, concurrent lock conflict (mocked) |
-| `test_models.py` | Model creation, FK relationships, unique constraints (in-memory SQLite) |
-| `test_audit_hash.py` | Hash chain: first entry, subsequent entries, tamper detection |
+| `test_job_message.py` | Serialization/deserialization roundtrip, field validation, traceparent injection/extraction |
+| `test_advisory_lock.py` | Lock key derivation (hashtextextended), concurrent lock conflict (mocked) |
+| `test_audit_hash.py` | Hash chain: first entry, subsequent entries, tamper detection, sequence gap on rollback (mocked) |
+| `test_error_envelope.py` | Each webhook error code maps to correct HTTP status + envelope shape |
+| `test_token_cache.py` | L1 hit (no Redis call), L1 miss → L2 hit, L2 miss → GitHub fetch, invalidation clears both L1+L2 (mocked Redis) |
+
+> **Note:** Model/schema tests that require PostgreSQL (pgvector, JSONB, advisory locks, BIGSERIAL) are **integration tests**, not unit tests — per `CODE_STANDARDS.md §6`, unit tests have "no I/O, no network." Pure unit tests mock the DB/session layer.
 
 ### 12.2 Integration Tests (`tests/integration/`)
 
 | File | Tests |
 |---|---|
-| `test_webhook_ingestion.py` | Post fake webhook → verify DB row + Redis stream entry |
+| `test_models.py` | Model creation, FK relationships, unique constraints (real PostgreSQL via docker-compose) |
+| `test_webhook_ingestion.py` | Post fake webhook → verify DB outbox row (enqueued=false), no Redis write yet |
+| `test_outbox_publisher.py` | Insert outbox row → run publisher → verify XADD to Redis + enqueued=true |
 | `test_worker_consumption.py` | Enqueue a job → run worker → verify review_run created in RECEIVED |
-| `test_idempotency.py` | Post same webhook twice → only one DB row + one stream entry |
+| `test_idempotency.py` | Post same delivery_id twice → only one DB row; post different delivery_id same (pr,sha) → no duplicate review_run |
 | `test_priority_streams.py` | Enqueue to high/medium/low → verify consumption order |
 | `test_janitor.py` | Stall a message → XAUTOCLAIM re-delivers → dead-letter after 3 attempts |
+| `test_audit_sequence.py` | Concurrent inserts → no duplicate sequence_number; hash chain intact |
 
 ### 12.3 E2E Test (`tests/e2e/`)
 
@@ -772,11 +880,7 @@ CONSUMER_GROUP = "meridian-workers"
 
 | ADR | Title | Decision |
 |---|---|---|
-| ADR-006 | Webhook ingestion architecture | Verify → enqueue → ack within 10s; idempotency via delivery_id unique constraint + advisory lock |
-| ADR-007 | Redis Streams priority lanes | Separate streams per priority tier (high/medium/low) with consumer reading high→medium→low |
-| ADR-008 | Database schema design | All 13 core tables + webhook_deliveries created upfront; BIGSERIAL PKs; pgvector extension |
-| ADR-009 | GitHub adapter pattern | JWT from App private key, installation token cache per-process, rate-limit-aware httpx client |
-| ADR-010 | Worker consumer design | XREADGROUP with at-least-once, XAUTOCLAIM janitor, dead-letter after 3 attempts, XACK after DB commit |
+| [ADR-006](../adr/adr-006-phase1-github-app-webhook-ingestion.md) | Phase 1 — GitHub App + webhook ingestion layer | Single consolidated ADR covering: webhook ingestion architecture (verify → outbox → ack within 10s; idempotency via delivery_id + advisory lock + second check on (pull_request_id, head_sha); thin route → service function with explicit transaction); transactional outbox pattern (webhook_deliveries doubles as outbox; publisher coroutine in worker polls SKIP LOCKED, XADD, marks enqueued; decouples Redis from 10s critical path); Redis Streams priority lanes (separate high/medium/low streams); database schema design (14 tables upfront; BIGSERIAL PKs; pgvector; audit sequence via PostgreSQL SEQUENCE); GitHub adapter pattern (JWT from App private key; L1 in-memory + L2 Redis shared token cache; rate-limit-aware httpx client); worker consumer design (XREADGROUP at-least-once; XAUTOCLAIM janitor; dead-letter after 3 attempts; XACK after DB commit); Stripe-style error envelope (type, code, param, request_id, doc_url; webhook error code taxonomy; updates CODE_STANDARDS.md §3); trace context propagation (W3C traceparent in JobMessage; OTel inject/extract across Redis Streams process boundary) |
 
 ---
 
@@ -785,17 +889,18 @@ CONSUMER_GROUP = "meridian-workers"
 | Step | Component | Description |
 |---|---|---|
 | 1 | `packages/config/` | Settings, DB engine, Redis client — foundation everything depends on |
-| 2 | `packages/models/` | All 14 tables (SQLAlchemy 2.0) + Pydantic schemas + enums |
-| 3 | `db/migrations/` | Alembic setup + initial migration creating all tables + pgvector extension |
-| 4 | `packages/observability/` | structlog + OTel setup |
-| 5 | `packages/security/` | HMAC verification + advisory lock helpers |
-| 6 | `packages/github/` | JWT, installation tokens, webhook verification, API client |
-| 7 | `packages/orchestration/` | Redis Streams producer + consumer + stream config |
-| 8 | `apps/api/` | FastAPI app, lifespan, routers, deps |
-| 9 | `apps/worker/` | Consumer loop, janitor, graceful shutdown |
+| 2 | `packages/models/` | All 14 tables (SQLAlchemy 2.0, including outbox columns on webhook_deliveries) + Pydantic schemas + enums |
+| 3 | `db/migrations/` | Alembic setup + initial migration creating all tables + pgvector extension + audit_events_seq |
+| 4 | `packages/observability/` | structlog + OTel setup (incl. traceparent inject/extract helpers) |
+| 5 | `packages/security/` | HMAC verification + advisory lock helpers (hashtextextended key derivation) |
+| 6 | `packages/github/` | JWT, two-layer (L1/L2) installation token cache, webhook verification, API client |
+| 7 | `packages/orchestration/` | ingestion.py service function + Redis Streams producer + consumer + stream config + JobMessage (with traceparent) |
+| 8 | `apps/api/` | FastAPI app, lifespan, routers (thin handlers → service), deps, error envelope |
+| 9 | `apps/worker/` | Consumer loop, outbox_publisher, janitor, graceful shutdown |
 | 10 | `tests/` | Unit + integration + e2e |
-| 11 | ADRs | ADR-006 through ADR-010 |
-| 12 | `track.md` + commit | Update track, commit all |
+| 11 | ADRs | ADR-006 (consolidated Phase 1 ADR) |
+| 12 | `CODE_STANDARDS.md §3` | Update error envelope to Stripe-style (ADR-006) |
+| 13 | `track.md` + commit | Update track, commit all |
 
 Each step produces a testable, committable unit. Steps 1-7 are packages (no running process). Steps 8-9 are apps (runnable). Step 10 validates everything.
 
@@ -805,15 +910,22 @@ Each step produces a testable, committable unit. Steps 1-7 are packages (no runn
 
 | Decision | Rationale |
 |---|---|
-| Raw body read once for HMAC + JSON | Avoids re-reading stream; FastAPI body is consumed once |
-| Advisory lock on hash(repo+pr+sha) | Prevents race condition on concurrent redelivery without blocking unrelated webhooks |
-| Job message = reference, not full payload | Keeps Redis stream entries small; worker reads payload from DB |
+| Raw body via `Request.body()` for HMAC + JSON | Avoids re-reading stream; FastAPI route takes `request: Request` not a Pydantic model |
+| Transactional outbox pattern (ADR-006) | Eliminates dual-write hazard between DB commit and Redis XADD; decouples Redis availability from the 10-second webhook critical path |
+| `webhook_deliveries` doubles as outbox table | Avoids a separate outbox table; `enqueued`/`enqueued_at` columns track XADD status |
+| Outbox publisher in worker process (SKIP LOCKED) | Partitions work across worker instances; API scaling doesn't multiply publishers; ingestion fully decoupled from Redis |
+| Route handler delegates to `ingest_webhook()` service | Thin handlers per `CODE_STANDARDS.md`; explicit `async with session.begin()` transaction scope — no reliance on FastAPI dependency teardown for lock release |
+| Advisory lock on `hashtextextended(repo:pr:sha)` | Prevents race condition on concurrent redelivery; 64-bit key, collisions astronomically rare |
+| Second idempotency check on `(pull_request_id, head_sha)` | Prevents duplicate review_runs when GitHub redelivers with a new delivery_id but same payload |
+| Job message = reference + `traceparent`, not full payload | Keeps Redis stream entries small; worker reads payload from DB; traceparent preserves OTel parent-child span across process boundary |
 | Separate priority streams vs single stream | True priority semantics; consumer reads high→medium→low |
 | XACK after DB commit | At-least-once delivery — crash before ack means redelivery, idempotency prevents dupes |
 | All 13 tables upfront | Avoid migration churn later; empty tables are cheap; FK relationships are correct from day 1 |
-| In-memory token cache (per-process) | Simple for Phase 1; Redis-based distributed cache can be added when horizontal scaling matters |
+| Two-layer (L1 in-memory + L2 Redis) token cache | L1 avoids Redis round-trips for hot tokens; L2 shares tokens across all processes; invalidation propagates via Redis DEL |
+| Stripe-style error envelope (type, code, param, request_id, doc_url) | Machine-readable taxonomy; codified webhook error codes prevent ad-hoc strings; dual-level type+code matches industry standard |
+| Audit sequence via PostgreSQL SEQUENCE | Atomic, non-blocking under concurrent inserts; gaps on rollback are acceptable (hash-chain integrity is from linking, not contiguity) |
 | App factory pattern | Testable; no global state; settings injected |
-| webhook_deliveries table (14th table) | Required for idempotency; not in original 13 but is an implementation detail of ingestion |
+| `webhook_deliveries` table (14th table) | Required for idempotency + outbox; not in original 13 but is an implementation detail of ingestion |
 
 ---
 

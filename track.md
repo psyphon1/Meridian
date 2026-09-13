@@ -192,14 +192,14 @@
    - `pre-commit`: delegates to Python `pre-commit run` + `pnpm format:check` for frontend.
    - `pre-push`: delegates to Python `pre-commit run --hook-stage pre-push` + `pnpm lint` + `pnpm typecheck`.
 
-9. **Updated `docs/design/Phase1_GitHubApp_WebhookIngestion_Design.md`**:
+9. **Updated `docs/specs/2026-09-13-phase1-github-app-webhook-ingestion.md`** (formerly `docs/design/Phase1_GitHubApp_WebhookIngestion_Design.md`):
    - Retroactively added document metadata header per new §6 standard (`Created:`, `Author:`, `Version:`, `Last Updated:`, `Status:`).
 
 ### Next
 
 - [ ] Commit + push to `origin/feat/phase1-github-app-webhook-ingestion`
 - [ ] Phase 1 build step 1: `packages/config/` (settings, DB engine, Redis client)
-- [ ] ADR-006 through ADR-010 as implementation progresses
+- [ ] ADR-006 as implementation progresses
 
 ---
 
@@ -261,4 +261,104 @@
 - [ ] Phase 1 build: GitHub App + OAuth + FastAPI + PostgreSQL + Redis Streams + basic review publishing
 - [ ] ADR-006+ as architecture decisions are made
 
+
+---
+
+## Entry 9 — 2026-09-13: Phase 1 design spec enhanced (code quality grilling + brainstorming)
+
+**Performed by:** Cline (agent) with Chinmay Duse (psyphon1)
+
+### Done
+
+1. **Pressure-tested the Phase 1 design spec** (`docs/specs/2026-09-13-phase1-github-app-webhook-ingestion.md`) via the grilling + brainstorming skills — 17 design-tree questions across 3 rounds, with web research on webhook error taxonomies (Stripe) and transactional outbox patterns (AWS Prescriptive Guidance).
+
+2. **Updated the Phase 1 spec from v1.0.0 → v1.1.0** with all 17 settled decisions:
+   - **Transactional outbox pattern (ADR-006):** eliminated the dual-write hazard (XADD inside DB transaction). `webhook_deliveries` now doubles as the outbox (`enqueued`/`enqueued_at` columns); an outbox publisher coroutine in the worker process polls `WHERE enqueued = false FOR UPDATE SKIP LOCKED`, calls XADD, marks enqueued. Redis is now fully decoupled from the 10-second webhook critical path.
+   - **Raw body HMAC (Q1=A):** route handler takes `request: Request`, reads `await request.body()`, verifies HMAC, then parses JSON — no FastAPI auto-parsing on the critical security path.
+   - **Thin route handler + explicit transaction (Q5=A):** route delegates to `ingest_webhook()` service function with `async with session.begin()` — no reliance on FastAPI dependency teardown for advisory lock release.
+   - **Second idempotency check (Q15=A):** after advisory lock, query `review_runs(pull_request_id, head_sha)` for existing RECEIVED run — prevents duplicate review runs on GitHub redelivery with new delivery_id.
+   - **Stripe-style error envelope (ADR-006, Q8=D):** full envelope with `type`, `code`, `param`, `request_id`, `doc_url`; codified webhook error code taxonomy (7 codes). Signature verification returns 401 (GitHub convention, not Stripe's 400).
+   - **Trace context propagation (ADR-006, Q9=B):** W3C `traceparent` string in `JobMessage`; OTel inject/extract across Redis Streams process boundary.
+   - **Two-layer token cache (Q12=B, Q16=B):** L1 in-memory + L2 Redis shared cache for installation tokens; invalidation propagates via Redis DEL.
+   - **Audit sequence via PostgreSQL SEQUENCE (Q14=A):** atomic, non-blocking; gaps on rollback are acceptable (hash-chain integrity is from linking, not contiguity).
+   - **Advisory lock key via `hashtextextended` (Q11=A):** 64-bit BIGINT from `repo_id:pr_number:head_sha`.
+   - **`payload_size_bytes` column (Q10=B):** monitoring column on `webhook_deliveries` for oversized webhook alerting.
+   - **Test plan relabeled (Q2=B):** model tests moved from unit → integration (PostgreSQL required); unit tests are pure (mocked DB/Redis); added `test_outbox_publisher.py`, `test_error_envelope.py`, `test_token_cache.py`, `test_audit_sequence.py`.
+
+3. **Created 1 consolidated ADR** (`docs/adr/adr-006-phase1-github-app-webhook-ingestion.md`) — covers all Phase 1 architectural decisions (outbox, priority streams, schema, adapter, worker, error envelope, trace propagation) in a single per-phase ADR.
+
+4. **Updated `docs/adr/README.md`** index — added ADR-006 entry.
+
+5. **Updated `docs/CODE_STANDARDS.md §3`** — error envelope changed from `{code, message, details}` to Stripe-style `{type, code, message, param, request_id, doc_url}` per ADR-006.
+
+6. **Reorganized spec storage** — moved the spec from `docs/design/Phase1_GitHubApp_WebhookIngestion_Design.md` to `docs/specs/2026-09-13-phase1-github-app-webhook-ingestion.md` (new `docs/specs/` folder; naming convention: `YYYY-MM-DD-<feature>.md`).
+
+### Next
+
+- [ ] Commit + push to `origin/feat/phase1-github-app-webhook-ingestion`
+- [ ] Phase 1 build step 1: `packages/config/` (settings, DB engine, Redis client)
+- [ ] Implement ADR-006 as code lands
+
+
+---
+
+## Entry 10 — 2026-09-13: Phase 1 implementation plan created
+
+**Performed by:** Cline (agent) with Chinmay Duse (psyphon1)
+
+### Done
+
+1. **Created `docs/implementation-plans/` folder** — new folder for executable build plans, alongside existing `docs/specs/` and `docs/adr/`.
+
+2. **Wrote implementation plan** (`docs/implementation-plans/2026-09-13-phase1-github-app-webhook-ingestion.md`) — a detailed, milestone-by-milestone decomposition of the Phase 1 spec into 10 committable units (M1–M10):
+   - Each milestone lists: purpose, files to create (with key functions/schemas), acceptance criteria, and suggested Conventional Commit message.
+   - Dependency order: M1 (config) → M2 (models) → M3 (migrations) → (M4 ∥ M5) → M6 (GitHub adapter) → M7 (orchestration) → M8 (FastAPI app) → M9 (worker) → M10 (tests).
+   - Includes full testing strategy (unit → integration → e2e), Definition of Done checklist, Risks & Mitigations table, and deferred-scope reference.
+   - Notes prerequisite items already done (ADR-006, CODE_STANDARDS §3, spec in `docs/specs/`).
+
+### Next
+
+- [ ] Commit + push to `origin/feat/phase1-github-app-webhook-ingestion`
+- [ ] Phase 1 build step 1: `packages/config/` (settings, DB engine, Redis client)
+- [ ] Continue through build order steps 2–13 per spec §14 / implementation plan M1–M10
+
+
+
+---
+
+## Entry 11 — 2026-09-13: Phase 1 implementation plan rewritten in writing-plans skill format
+
+**Performed by:** Cline (agent) with Chinmay Duse (psyphon1)
+
+### Done
+
+1. **Deleted the ad-hoc implementation plan** (`docs/implementation-plans/2026-09-13-phase1-github-app-webhook-ingestion.md` v1.0.0) that was written without the `writing-plans` skill and lacked executable TDD steps.
+
+2. **Recreated the plan using the `writing-plans` skill** — the new plan follows the required format exactly:
+   - **Required header:** `> For agentic workers:` directive with sub-skill reference (subagent-driven-development / executing-plans), Goal, Architecture, Tech Stack, Global Constraints, Source Documents, File Structure.
+   - **29 tasks**, each with: Files (Create/Modify/Test with exact paths), Interfaces (Consumes/Produces), and 5 TDD steps (write failing test with real code → run to see FAIL → write implementation with real code → run to see PASS → Conventional Commit).
+   - **Real, runnable code** in every step — no placeholders. Tests, implementations, migration SQL, and shell commands are all complete and executable by a zero-context engineer/subagent.
+   - **Interface contracts** (Consumes/Produces) on every task so subagents know exactly what each module provides and depends on.
+   - **Exact commands with expected output** — every test step specifies the `pytest` invocation and the expected FAIL/PASS result.
+   - **Self-review pass** — a completed checklist verifying all skill requirements are met, plus 5 explicitly documented scope decisions/gaps.
+   - **Definition of Done** checklist (12 items: tests, lint, mypy, coverage ≥80%, migration, e2e, endpoint behavior, no credentials).
+   - **Risks & Mitigations** table (5 risks with likelihood/impact/mitigation).
+   - **Execution Notes** — parallelizable task groups and sequential dependency chains for subagent dispatch.
+
+3. **Task decomposition** (10 milestones → 29 TDD tasks):
+   - M1 config (Tasks 1–3): settings, DB engine, Redis client + stream constants
+   - M2 models (Tasks 4–9): base+enums, identity tables, repository tables, review tables, audit+webhook_deliveries, Pydantic schemas
+   - M3 migration (Task 10): Alembic setup + initial 14-table schema with indexes + audit sequence
+   - M4 observability (Tasks 11–12): structlog setup + traceparent inject/extract
+   - M5 security (Tasks 13–14): HMAC-SHA256 verify + advisory lock
+   - M6 GitHub adapter (Tasks 15–19): error hierarchy, JWT generation, token cache, webhook event filter, API client
+   - M7 orchestration (Tasks 20–22): producer, consumer, ingest_webhook service
+   - M8 API (Tasks 23–25): app factory+lifespan+deps, health router, webhooks router+error envelope
+   - M9 worker (Tasks 26–28): main+consumer loop, outbox publisher, janitor
+   - M10 tests (Task 29): fixtures + e2e pipeline test
+
+### Next
+
+- [ ] Commit + push the rewritten plan to `origin/feat/phase1-github-app-webhook-ingestion`
+- [ ] Begin M1 implementation (Task 1: `packages/config/settings.py`) using subagent-driven-development
 

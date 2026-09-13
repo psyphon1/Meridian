@@ -47,7 +47,7 @@
 ## 3. API
 
 - **OpenAPI contract** auto-generated from FastAPI + Pydantic; every endpoint has a versioned path (`/v1/...`), request/response models, and documented errors.
-- **Consistent error envelope:** `{ "error": { "code": "...", "message": "...", "details": {...} } }`. No secrets, stack traces, or internal identifiers in error responses.
+- **Consistent error envelope** (Stripe-style, per ADR-006): `{ "error": { "type": "...", "code": "...", "message": "...", "param": "...", "request_id": "...", "doc_url": "..." } }`. `type` is the broad category (`webhook`, `auth`, `rate_limit`, `validation`, `internal`); `code` is the specific machine-readable string (namespaced, e.g., `webhook.signature_invalid`); `param` identifies the offending input (`null` when not applicable); `request_id` correlates to OTel trace ID; `doc_url` links to error docs (`null` until docs exist). No secrets, stack traces, or internal identifiers in error responses.
 - **Versioning:** breaking changes -> new minor version (e.g. `/v2/...`); the old version stays available for at least one release cycle with a deprecation header.
 
 ## 4. Git
