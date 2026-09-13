@@ -1,6 +1,5 @@
-from sqlalchemy import inspect as sa_inspect
-
 from packages.models.review import Evidence, Finding, PullRequest, ReviewMemory, ReviewRun, ToolRun
+from sqlalchemy import inspect as sa_inspect
 
 
 def test_pull_request_columns():
@@ -54,7 +53,15 @@ def test_finding_columns():
 
 def test_evidence_columns():
     cols = {c.name for c in sa_inspect(Evidence).columns}
-    assert cols == {"id", "review_run_id", "type", "artifact_ref", "summary", "verified", "created_at"}
+    assert cols == {
+        "id",
+        "review_run_id",
+        "type",
+        "artifact_ref",
+        "summary",
+        "verified",
+        "created_at",
+    }
 
 
 def test_tool_run_columns():

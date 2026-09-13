@@ -1,6 +1,5 @@
-from sqlalchemy import inspect as sa_inspect
-
 from packages.models.repository import CodeSymbol, Commit, File, Repository
+from sqlalchemy import inspect as sa_inspect
 
 
 def test_repository_columns():

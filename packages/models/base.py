@@ -14,9 +14,7 @@ class Base(DeclarativeBase):
 class TimestampMixin:
     """Adds created_at and updated_at columns with server defaults."""
 
-    created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), server_default=func.now()
-    )
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
     )
@@ -25,9 +23,7 @@ class TimestampMixin:
 class CreatedAtMixin:
     """Adds only created_at (for append-only tables)."""
 
-    created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), server_default=func.now()
-    )
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
 
 class ReviewStatus(StrEnum):

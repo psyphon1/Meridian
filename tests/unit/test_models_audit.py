@@ -1,6 +1,5 @@
-from sqlalchemy import inspect as sa_inspect
-
 from packages.models.audit import AuditEvent, WebhookDelivery
+from sqlalchemy import inspect as sa_inspect
 
 
 def test_audit_event_columns():

@@ -1,9 +1,18 @@
-"""Review-domain models — pull_requests, review_runs, findings, evidence, tool_runs, review_memory (Task 7)."""
+"""Review-domain models — PRs, runs, findings, evidence, tool runs, memory (Task 7)."""
 
 from datetime import datetime
 from typing import Any
 
-from sqlalchemy import BigInteger, Boolean, Float, ForeignKey, Integer, String, Text, UniqueConstraint
+from sqlalchemy import (
+    BigInteger,
+    Boolean,
+    Float,
+    ForeignKey,
+    Integer,
+    String,
+    Text,
+    UniqueConstraint,
+)
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -49,7 +58,9 @@ class ReviewRun(Base, TimestampMixin):
         BigInteger, ForeignKey("pull_requests.id"), nullable=False
     )
     status: Mapped[str] = mapped_column(String(30), nullable=False, default=ReviewStatus.RECEIVED)
-    risk_tier: Mapped[str | None] = mapped_column(String(10), nullable=True, default=RiskTier.MEDIUM)
+    risk_tier: Mapped[str | None] = mapped_column(
+        String(10), nullable=True, default=RiskTier.MEDIUM
+    )
     started_at: Mapped[datetime | None] = mapped_column(nullable=True)
     completed_at: Mapped[datetime | None] = mapped_column(nullable=True)
     error_message: Mapped[str | None] = mapped_column(Text, nullable=True)
@@ -80,13 +91,17 @@ class Finding(Base, CreatedAtMixin):
         BigInteger, ForeignKey("review_runs.id"), nullable=False
     )
     category: Mapped[str] = mapped_column(String(50), nullable=False)
-    severity: Mapped[str] = mapped_column(String(10), nullable=False, default=FindingSeverity.MEDIUM)
+    severity: Mapped[str] = mapped_column(
+        String(10), nullable=False, default=FindingSeverity.MEDIUM
+    )
     confidence: Mapped[float] = mapped_column(Float, nullable=False)
     file_path: Mapped[str] = mapped_column(Text, nullable=False)
     start_line: Mapped[int] = mapped_column(Integer, nullable=False)
     end_line: Mapped[int] = mapped_column(Integer, nullable=False)
     message: Mapped[str] = mapped_column(Text, nullable=False)
-    evidence_id: Mapped[int | None] = mapped_column(BigInteger, ForeignKey("evidence.id"), nullable=True)
+    evidence_id: Mapped[int | None] = mapped_column(
+        BigInteger, ForeignKey("evidence.id"), nullable=True
+    )
 
 
 class ToolRun(Base, CreatedAtMixin):

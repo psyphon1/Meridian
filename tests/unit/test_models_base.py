@@ -1,5 +1,3 @@
-from sqlalchemy.orm import DeclarativeBase
-
 from packages.models.base import (
     Base,
     CreatedAtMixin,
@@ -10,6 +8,7 @@ from packages.models.base import (
     RiskTier,
     TimestampMixin,
 )
+from sqlalchemy.orm import DeclarativeBase
 
 
 def test_base_is_declarative():
