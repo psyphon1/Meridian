@@ -362,3 +362,35 @@
 - [ ] Commit + push the rewritten plan to `origin/feat/phase1-github-app-webhook-ingestion`
 - [ ] Begin M1 implementation (Task 1: `packages/config/settings.py`) using subagent-driven-development
 
+---
+
+## Entry 12 — 2026-09-13: Phase 1 build M1–M3 (config + models + Alembic migration) in stacked worktrees
+
+**Performed by:** Cline (agent) with Chinmay Duse (psyphon1)
+
+### Done
+
+1. **Docs committed on main** (`71f3574`): Phase‑1 spec, ADR‑006, implementation plan v2, CODE_STANDARDS, track.md. (Removed a stale `.git/index.lock` that blocked an earlier commit.)
+2. **Config worktree — M1 complete** (`feature/config` @ `f9603a7`): typed `pydantic-settings` (`Settings`), async engine + session factory (`packages/config/database.py`), async Redis client + stream constants (`packages/config/redis.py`). 7/7 unit tests pass. Added root `conftest.py` (sys.path bootstrap). Added `packages/__init__.py` so mypy resolves `packages.*` under a single module name (fixed "Source file found twice" error). mypy strict clean; ruff clean.
+3. **Models worktree — M2 + M3 complete** (`feature/models` @ `2206f8f`, 3 commits):
+   - `feat(models): declarative base, domain enums, 12 table models, pydantic schemas` — `base.py` (DeclarativeBase, `TimestampMixin`, `CreatedAtMixin`, enums `ReviewStatus`/`RiskTier`/`FindingSeverity`/`InstallationStatus`/`PRState`), `identity.py` (User, APIKey, Installation), `repository.py` (Repository, Commit, File, CodeSymbol), `review.py` (PullRequest, ReviewRun, Evidence, Finding, ToolRun, ReviewMemory), `audit.py` (AuditEvent hash-chained, WebhookDelivery outbox), `schemas.py` (JobMessage, IngestResult, WebhookHeaders, PR/Installation payloads).
+   - `style(models)`: ruff format + import sorting + line-length fixes.
+   - `feat(models): alembic migration 001 + ephemeral db/redis test fixtures` — `db/migrations/` (alembic.ini, async `env.py` reading `MERIDIAN_DATABASE_URL` via `packages.config.settings`, script.py.mako, `001_initial_schema.py` with all 14 tables + 8 indexes + `audit_events_seq` + full downgrade), `tests/fixtures/db.py` (ephemeral per-session Postgres DB, skips when unreachable, `connect_timeout=3`), `tests/fixtures/redis.py` (DB 15, flushed), integration test `test_migration_001.py` driving Alembic via API.
+4. **Test/lint results (models worktree):** ruff check ✓, ruff format ✓, mypy --strict on `packages/models` ✓ (7 files), **36/36 unit tests pass**; integration test skips cleanly without backing services (Windows: `WindowsSelectorEventLoopPolicy` set in root conftest for psycopg async).
+5. **Branch stack re-aligned** after amending `feature/config`: `feature/config` → `feature/models` → `feature/obs_sec` → `feature/github_orch` → `feature/api` → `feature/worker` (obs_sec/github_orch/api/worker currently empty branches at the models tip).
+
+### Lessons / gotchas
+
+- mypy needs `packages/__init__.py` (regular package) or it sees files under two module names (`models.base` vs `packages.models.base`).
+- Adding `packages/__init__.py` flips ruff isort's first-party detection — `packages.*` imports move to a separate section (auto-fixed).
+- `git rebase` of stacked worktrees after amending the base commit: old base commit replays as a conflict → `git rebase --skip` takes the amended version; empty downstream branches need an explicit `git reset --hard <upstream>` (plain rebase reports "up to date" without moving them).
+- psycopg async on Windows requires SelectorEventLoop — set in root `conftest.py`.
+
+### Next
+
+- [ ] M4/M5: implement Tasks 11–14 (observability + security) in the obs_sec worktree
+- [ ] M6+: github_orch → api → worker worktrees in stack order
+- [ ] Open PRs for `feature/config` / `feature/models` **only with owner's explicit approval** (per owner instruction: no PRs without permission)
+- [ ] Optionally `docker compose up -d postgres redis` to exercise the integration test end-to-end
+
+
