@@ -5,13 +5,14 @@ import os
 import signal
 import socket
 
-from apps.worker.consumer import run_consumer_loop
-from apps.worker.janitor import run_janitor
-from apps.worker.outbox_publisher import run_outbox_publisher
 from packages.config.database import create_db_engine, create_session_factory
 from packages.config.redis import create_redis_client
 from packages.config.settings import get_settings
 from packages.observability.logging import get_logger, setup_logging
+
+from apps.worker.consumer import run_consumer_loop
+from apps.worker.janitor import run_janitor
+from apps.worker.outbox_publisher import run_outbox_publisher
 
 
 def make_consumer_name() -> str:
@@ -45,9 +46,7 @@ async def run_worker() -> None:
     log.info("worker.starting", consumer=consumer_name)
 
     tasks = [
-        asyncio.create_task(
-            run_consumer_loop(redis, session_factory, consumer_name)
-        ),
+        asyncio.create_task(run_consumer_loop(redis, session_factory, consumer_name)),
         asyncio.create_task(run_outbox_publisher(redis, session_factory)),
         asyncio.create_task(run_janitor(redis)),
     ]

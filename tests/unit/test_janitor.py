@@ -1,7 +1,8 @@
 """Unit tests for the janitor loop (Task 28)."""
 
-import pytest
+import contextlib
 
+import pytest
 from apps.worker.janitor import run_janitor
 
 
@@ -34,10 +35,8 @@ async def test_janitor_runs_one_cycle(monkeypatch):
             raise SystemExit
 
     monkeypatch.setattr("apps.worker.janitor.asyncio.sleep", fake_sleep)
-    try:
+    with contextlib.suppress(SystemExit):
         await run_janitor(FakeRedis())
-    except SystemExit:
-        pass
 
     assert any(c[0] == "xautoclaim" for c in calls)
     assert any(c[0] == "xtrim" for c in calls)

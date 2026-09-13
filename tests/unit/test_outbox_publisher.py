@@ -1,8 +1,7 @@
 """Unit tests for the transactional outbox publisher (Task 27)."""
 
-from packages.models.audit import WebhookDelivery
-
 from apps.worker.outbox_publisher import build_job_message
+from packages.models.audit import WebhookDelivery
 
 
 def test_build_job_message_from_delivery():

@@ -2,8 +2,6 @@
 
 import asyncio
 
-from redis.asyncio import Redis
-
 from packages.config.redis import (
     CONSUMER_GROUP,
     STREAM_DEADLETTER,
@@ -12,6 +10,7 @@ from packages.config.redis import (
     STREAM_MEDIUM,
 )
 from packages.observability.logging import get_logger
+from redis.asyncio import Redis
 
 log = get_logger("worker.janitor")
 
@@ -27,7 +26,9 @@ async def run_janitor(redis: Redis) -> None:
         try:
             for stream in _STREAMS:
                 claimed = await redis.xautoclaim(
-                    stream, CONSUMER_GROUP, "janitor",
+                    stream,
+                    CONSUMER_GROUP,
+                    "janitor",
                     min_idle_time=_MIN_IDLE_MS,
                 )
                 # claimed = (next_start_id, messages, deleted_ids)
@@ -36,8 +37,7 @@ async def run_janitor(redis: Redis) -> None:
                     for entry_id, _fields in messages:
                         # Check retry count — move to dead-letter if exhausted
                         # Phase 1: simple claim, no retry tracking
-                        log.info("janitor.claimed", stream=stream,
-                                 entry_id=entry_id)
+                        log.info("janitor.claimed", stream=stream, entry_id=entry_id)
 
             for stream in _STREAMS:
                 await redis.xtrim(stream, maxlen=_MAXLEN)
