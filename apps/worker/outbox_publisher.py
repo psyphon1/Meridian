@@ -4,15 +4,14 @@ import asyncio
 from datetime import UTC, datetime
 from typing import Any
 
-from redis.asyncio import Redis
-from sqlalchemy import func, select, update
-from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
-
 from packages.models.audit import WebhookDelivery
 from packages.models.schemas import JobMessage
 from packages.observability.logging import get_logger
 from packages.observability.tracing import inject_traceparent
 from packages.orchestration.producer import enqueue_job
+from redis.asyncio import Redis
+from sqlalchemy import func, select, update
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 log = get_logger("worker.outbox")
 
@@ -51,14 +50,18 @@ async def publish_pending(
     published = 0
     async with session_factory() as session, session.begin():
         rows = (
-            await session.execute(
-                select(WebhookDelivery)
-                .where(WebhookDelivery.enqueued.is_(False))
-                .order_by(WebhookDelivery.created_at)
-                .limit(100)
-                .with_for_update(skip_locked=True)
+            (
+                await session.execute(
+                    select(WebhookDelivery)
+                    .where(WebhookDelivery.enqueued.is_(False))
+                    .order_by(WebhookDelivery.created_at)
+                    .limit(100)
+                    .with_for_update(skip_locked=True)
+                )
             )
-        ).scalars().all()
+            .scalars()
+            .all()
+        )
 
         for deliv in rows:
             msg = build_job_message(deliv)
