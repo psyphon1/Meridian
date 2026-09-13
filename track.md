@@ -389,8 +389,8 @@
 ### Next
 
 - [x] M4/M5: implement Tasks 11–14 (observability + security) in the obs_sec worktree — `feature/obs_sec` @ `46e6b97` (4 commits: structlog setup `7fae653`, traceparent inject/extract `38f92d4`, HMAC-SHA256 verify `23a6b1d`, advisory lock `46e6b97`). ruff ✓, mypy --strict ✓, **47/47 unit tests pass**. Downstream empty branches (github_orch, api, worker) re-pointed to `46e6b97`.
-- [ ] M6+: github_orch → api → worker worktrees in stack order
-- [ ] Open PRs for `feature/config` / `feature/models` **only with owner's explicit approval** (per owner instruction: no PRs without permission)
+- [x] M6+: github_orch → api → worker worktrees in stack order
+- [x] Open PRs (owner-approved 2026-09-13) — stacked series opened: **PR #1** `feature/config` → `main`, **PR #2** `feature/models` → `feature/config`, **PR #3** `feature/obs_sec` → `feature/models` (github_orch/api/worker are empty — no PRs until they have commits). Branches pushed; `main` (docs) pushed first to give PR #1 a clean base.
 - [ ] Optionally `docker compose up -d postgres redis` to exercise the integration test end-to-end
 
 
