@@ -1,7 +1,6 @@
 """Unit tests for the Redis Streams producer (Task 20)."""
 
 import pytest
-
 from packages.models.schemas import JobMessage
 
 
