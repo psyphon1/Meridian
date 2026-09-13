@@ -511,6 +511,27 @@
 - [ ] After merges: run `docker compose up -d` + alembic upgrade + integration/e2e suites against live services.
 - [ ] Phase 2 backlog: risk-tier classification, installation-token API wiring, pgvector, review agent pipeline.
 
+---
+
+## Entry 17 — 2026-09-13: Stacked PRs #4–#6 opened + PR template restructured to What/Why/When/How
+
+**Performed by:** Cline (agent) with Chinmay Duse (psyphon1)
+
+### Done
+
+1. **Opened the three remaining stacked PRs** (citation-based template checklists filled in each body):
+   - PR **#4** — `feature/github_orch` → `feature/obs_sec`: orchestration Tasks 20–22.
+   - PR **#5** — `feature/api` → `feature/github_orch`: API Tasks 23–25.
+   - PR **#6** — `feature/worker` → `feature/api`: worker + e2e Tasks 26–29.
+2. **Restructured `.github/pull_request_template.md`**: replaced the single `Summary` section with explicit **What / Why / When / How** sections plus new **Impact** and **Rollback** sections; the mandatory checklist (per `docs/DEVELOPER_STANDARDS.md`) is unchanged.
+3. **Opened PR #7** — `feat/phase1-github-app-webhook-ingestion` → `main`: carries this template change + this track.md entry (the phase-1 plan branch previously had no PR; its earlier track.md entries went straight to `main`).
+
+### Next
+
+- [ ] Review/merge order: #1 → #2 → #3 → #4 → #5 → #6 → #7.
+- [ ] After merges: `docker compose up -d` + `alembic upgrade head` + re-run integration/e2e suites against live services; tag `v0.1.0`.
+
+
 
 
 
