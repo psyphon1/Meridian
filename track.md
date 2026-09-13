@@ -155,6 +155,54 @@
 
 ---
 
+## Entry 9 — 2026-09-13: Process standards tightened — doc metadata, PR discipline, pre-commit hooks, gitleaks, husky
+
+**Performed by:** Cline (agent) with Chinmay Duse (psyphon1)
+
+### Done
+
+1. **Updated `docs/DEVELOPER_STANDARDS.md`**:
+   - Added §3: PR discipline — all claims must be **citation-based** (code location, test output, design doc section, ADR, or reproducible benchmark). False claims are unacceptable.
+   - Added §4.1: **Pre-commit testing gate** — unit tests run on `pre-commit`, integration tests on `pre-push`, both enforced by CI. No `--no-verify` for production-bound commits.
+   - Added §5: Explicit prohibition of `.env` files, environment variables, and hardcoded secrets in any committed file.
+   - Added §6: **Document metadata header standard** — every design doc/spec/plan under `docs/` must begin with `Created:`, `Author:`, `Version:`, `Last Updated:`, `Status:`.
+   - Added §7: **Pre-commit toolchain** — required tools (pre-commit, gitleaks, husky, lint-staged), hook stages, setup instructions, skip policy.
+
+2. **Updated `.github/pull_request_template.md`**:
+   - Added checkboxes: tests pass locally, no env vars/secrets, citation-based claims, no false claims, doc metadata header present.
+
+3. **Updated `docs/SETUP.md`**:
+   - Added §3.1: Pre-commit hooks installation instructions (one-time per clone).
+
+4. **Updated `docs/SECURITY.md`**:
+   - Added §2.1: Pre-commit enforcement (gitleaks) — scan rules, remediation steps, `.env.example` as the only allowed env file.
+
+5. **Created `.pre-commit-config.yaml`**:
+   - 7 repos/hooks: gitleaks secret scan · ruff lint+format · custom `.env` file scanner · mypy typecheck · pytest unit tests (pre-commit) · pytest integration tests (pre-push) · pnpm lint + typecheck (pre-push).
+
+6. **Created `scripts/pre_commit/no_env_files.py`**:
+   - Scans all files for blocked filenames (`.env*`, `*.env`, `.envrc`) and hardcoded secret patterns (GitHub private key, database URL with credentials, KMS master key, AWS secret key, OpenAI API key format).
+   - Fails the commit with remediation instructions if violations found.
+
+7. **Updated `package.json`**:
+   - Added `"prepare": "husky install"` script.
+   - Added `husky` and `lint-staged` to `devDependencies`.
+
+8. **Created `.husky/pre-commit`** and **`.husky/pre-push`**:
+   - `pre-commit`: delegates to Python `pre-commit run` + `pnpm format:check` for frontend.
+   - `pre-push`: delegates to Python `pre-commit run --hook-stage pre-push` + `pnpm lint` + `pnpm typecheck`.
+
+9. **Updated `docs/design/Phase1_GitHubApp_WebhookIngestion_Design.md`**:
+   - Retroactively added document metadata header per new §6 standard (`Created:`, `Author:`, `Version:`, `Last Updated:`, `Status:`).
+
+### Next
+
+- [ ] Commit + push to `origin/feat/phase1-github-app-webhook-ingestion`
+- [ ] Phase 1 build step 1: `packages/config/` (settings, DB engine, Redis client)
+- [ ] ADR-006 through ADR-010 as implementation progresses
+
+---
+
 ## Entry 6 — 2026-09-13: Production-ready scaffold pushed + beginner's guide
 
 **Performed by:** Cline (agent) with Chinmay Duse (psyphon1)

@@ -1,0 +1,11 @@
+#!/bin/sh
+# Meridian — Husky pre-push hook
+# Runs integration tests and TypeScript checks before any push.
+# See docs/DEVELOPER_STANDARDS.md §7.
+
+# Run Python pre-commit framework integration-test stage
+pre-commit run --hook-stage pre-push || exit 1
+
+# Run frontend lint + typecheck
+pnpm lint || exit 1
+pnpm typecheck || exit 1

@@ -42,6 +42,24 @@ pytest                                # tests/ (unit → integration → e2e)
 - API: http://localhost:8000 (OpenAPI at `/docs`) · Web: http://localhost:3000
 - Workers need at least one running worker process to drain Redis Streams consumer groups.
 
+## 3.1 Pre-commit hooks (required)
+
+All contributors must install pre-commit hooks **once per clone**:
+
+```powershell
+# 1. Install Python pre-commit framework (already in [dev] deps)
+python -m pre_commit install --install-hooks
+
+# 2. Install husky for Node.js/TypeScript hooks
+pnpm exec husky install
+```
+
+This sets up:
+- **Pre-commit**: gitleaks (secret scan) · ruff (lint+format) · mypy · pytest unit tests · `.env` file block
+- **Pre-push**: pytest integration tests · pnpm lint · pnpm typecheck
+
+Hooks run automatically on every `git commit` and `git push`. Never bypass with `--no-verify` for production-bound commits. If you must bypass (emergency WIP only), use `[skip-hooks]` in the commit message and re-check manually before PR (`make lint && make test && make typecheck`).
+
 ## 4. Conventions
 
 - Python: `ruff` + `mypy` strict (see CODE_STANDARDS.md); TypeScript: `tsc --strict` + `eslint` + `prettier`.

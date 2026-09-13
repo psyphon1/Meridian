@@ -1,0 +1,105 @@
+# Meridian — Pre-commit configuration
+# Installs gitleaks, ruff, mypy, pytest unit tests, and a custom .env file scanner.
+# Setup: pre-commit install --install-hooks
+#
+# See docs/DEVELOPER_STANDARDS.md §7 for hook policy and skip rules.
+
+minimum_pre_commit_version: "3.7.0"
+
+repos:
+  # ---------------------------------------------------------------------------
+  # 1. Secret scanning — gitleaks
+  # ---------------------------------------------------------------------------
+  - repo: https://github.com/gitleaks/gitleaks
+    rev: v8.18.4
+    hooks:
+      - id: gitleaks
+        name: gitleaks-secret-scan
+        entry: gitleaks detect --source . --verbose --redact
+        language: golang
+        pass_filenames: false
+        stages: [pre-commit]
+
+  # ---------------------------------------------------------------------------
+  # 2. Python lint + format — ruff
+  # ---------------------------------------------------------------------------
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.6.9
+    hooks:
+      - id: ruff
+        name: ruff-lint
+        args: [--fix]
+        stages: [pre-commit]
+      - id: ruff-format
+        name: ruff-format
+        stages: [pre-commit]
+
+  # ---------------------------------------------------------------------------
+  # 3. Custom .env / secrets scanner (local hook)
+  # ---------------------------------------------------------------------------
+  - repo: local
+    hooks:
+      - id: no-env-files
+        name: no-env-files-in-repo
+        entry: python scripts/pre_commit/no_env_files.py
+        language: python
+        pass_filenames: false
+        always_run: true
+        stages: [pre-commit]
+
+  # ---------------------------------------------------------------------------
+  # 4. Type-check — mypy (local, because it needs the venv)
+  # ---------------------------------------------------------------------------
+  - repo: local
+    hooks:
+      - id: mypy
+        name: mypy-typecheck
+        entry: python -m mypy apps packages services
+        language: system
+        pass_filenames: false
+        types: [python]
+        stages: [pre-commit]
+
+  # ---------------------------------------------------------------------------
+  # 5. Unit tests — pytest
+  # ---------------------------------------------------------------------------
+  - repo: local
+    hooks:
+      - id: pytest-unit
+        name: pytest-unit-tests
+        entry: python -m pytest tests/unit -q
+        language: system
+        pass_filenames: false
+        types: [python]
+        stages: [pre-commit]
+
+  # ---------------------------------------------------------------------------
+  # 6. Integration tests — pytest (pre-push stage)
+  # ---------------------------------------------------------------------------
+  - repo: local
+    hooks:
+      - id: pytest-integration
+        name: pytest-integration-tests
+        entry: python -m pytest tests/integration -q
+        language: system
+        pass_filenames: false
+        types: [python]
+        stages: [pre-push]
+
+  # ---------------------------------------------------------------------------
+  # 7. TypeScript lint + typecheck (pre-push stage)
+  # ---------------------------------------------------------------------------
+  - repo: local
+    hooks:
+      - id: pnpm-lint
+        name: pnpm-lint
+        entry: pnpm lint
+        language: system
+        pass_filenames: false
+        stages: [pre-push]
+      - id: pnpm-typecheck
+        name: pnpm-typecheck
+        entry: pnpm typecheck
+        language: system
+        pass_filenames: false
+        stages: [pre-push]

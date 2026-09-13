@@ -22,6 +22,14 @@
 - Key rotation and multi-provider keys supported from V1.
 - No repository content or user keys in application logs, ever.
 
+### 2.1 Pre-commit enforcement (gitleaks)
+
+- **gitleaks** runs on every `git commit` via `.pre-commit-config.yaml`. It scans staged and unstaged files for known secret patterns (AWS keys, GitHub tokens, private keys, etc.).
+- A **custom `.env` file scanner** also runs in the pre-commit hook: any file matching `.env*`, `*.env`, or containing `GITHUB_PRIVATE_KEY`, `DATABASE_URL` with credentials, or `KMS_MASTER_KEY` will block the commit.
+- If a secret is detected, the commit is aborted. The contributor must: (a) rotate the leaked credential immediately, (b) purge it from git history (`git filter-branch` or BFG Repo-Cleaner), (c) re-commit after fixing.
+- `.env.example` is the **only** env-related file allowed in the repo. It must contain **no real values** — only placeholder strings like `your-app-id-here`, `your-private-key-pem-here`.
+- No exceptions. Even "temporary" or "local dev" secrets are prohibited from the repository.
+
 ## 3. Sandbox Execution Security
 
 Deny-all network egress by default (explicit registry allowlist only) · command allowlists · CPU/memory/wall-clock/process limits · filesystem isolation · ephemeral per-job runtime from a tenant-scoped pre-warmed pool · Firecracker/gVisor direction for stronger isolation.

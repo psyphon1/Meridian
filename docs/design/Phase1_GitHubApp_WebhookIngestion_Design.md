@@ -1,9 +1,15 @@
 # Meridian — Phase 1 Design Spec
 # GitHub App + Webhook Ingestion Layer
 
+---
+Created: 2026-09-13
+Author: Chinmay Duse (psyphon1)
+Version: 1.0.0
+Last Updated: 2026-09-13
+Status: accepted
+---
+
 **Owner:** Chinmay Duse (psyphon1)
-**Date:** 2026-09-13
-**Status:** Approved
 **Phase:** 1 — Platform
 **Source of truth:** [`Meridian_Design_Doc_Final.html`](Meridian_Design_Doc_Final.html) §52 (V1 Implementation Boundaries)
 

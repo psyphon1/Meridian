@@ -1,0 +1,13 @@
+#!/bin/sh
+# Meridian — Husky pre-commit hook
+# Delegates to Python pre-commit framework for Python checks,
+# and runs pnpm format:check for TypeScript/frontend.
+# See docs/DEVELOPER_STANDARDS.md §7.
+
+# Run Python pre-commit framework (gitleaks, ruff, mypy, pytest unit, .env scan)
+pre-commit run --hook-stage pre-commit || exit 1
+
+# Run frontend formatting check if there are staged frontend files
+if git diff --cached --name-only | grep -qE 'apps/web|packages/'; then
+  pnpm format:check || exit 1
+fi
