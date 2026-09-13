@@ -1,0 +1,1 @@
+"""Meridian worker — Redis Streams consumer + outbox publisher + janitor."""
