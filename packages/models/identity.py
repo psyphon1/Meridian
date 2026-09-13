@@ -42,5 +42,7 @@ class Installation(Base, TimestampMixin):
     github_installation_id: Mapped[int] = mapped_column(BigInteger, unique=True, nullable=False)
     account_login: Mapped[str] = mapped_column(String(255), nullable=False)
     account_type: Mapped[str] = mapped_column(String(50), nullable=False)
-    status: Mapped[str] = mapped_column(String(20), nullable=False, default=InstallationStatus.ACTIVE)
+    status: Mapped[str] = mapped_column(
+        String(20), nullable=False, default=InstallationStatus.ACTIVE
+    )
     user_id: Mapped[int | None] = mapped_column(BigInteger, ForeignKey("users.id"), nullable=True)
