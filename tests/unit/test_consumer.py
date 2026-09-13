@@ -1,7 +1,6 @@
 """Unit tests for the Redis Streams consumer (Task 21)."""
 
 import pytest
-
 from packages.models.schemas import JobMessage
 
 
@@ -69,7 +68,6 @@ async def test_process_message_invalid_json_raises():
     """Malformed payloads propagate — the janitor/dead-letter path handles
     them in Phase 2 (process_message does not swallow validation errors)."""
     import pydantic
-
     from packages.orchestration.consumer import process_message
 
     raw: dict[bytes, list[tuple[bytes, dict[bytes, bytes]]]] = {

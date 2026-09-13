@@ -37,15 +37,16 @@ async def consume_loop(
     running: Callable[[], bool] = lambda: True,
 ) -> None:
     """Main consumer loop — reads high → medium → low in priority order."""
+    import contextlib
+
     import structlog
 
     log = structlog.get_logger("orchestration.consumer")
 
     for stream in _PRIORITY_STREAMS:
-        try:
+        with contextlib.suppress(Exception):
+            # Group already exists — safe to ignore.
             await redis.xgroup_create(stream, CONSUMER_GROUP, id="0", mkstream=True)
-        except Exception:  # noqa: S110 — group already exists
-            pass
 
     while running():
         for stream in _PRIORITY_STREAMS:
