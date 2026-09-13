@@ -422,4 +422,95 @@
 - [ ] M7 (Tasks 20–22, orchestration producer/consumer) in the `github_orch` worktree, continuing the stack.
 - [ ] Then `api` (M8) and `worker` (M9–M10) milestones.
 
+- [ ] Await review/merge of PR #1 → #2 → #3, then open PRs for `github_orch` (and downstream) and push `feature/github_orch`.
+- [ ] M7 (Tasks 20–22, orchestration producer/consumer) in the `github_orch` worktree, continuing the stack.
+- [ ] Then `api` (M8) and `worker` (M9–M10) milestones.
+
+---
+
+## Entry 14 — 2026-09-13: Phase 1 build M7 (Tasks 20–22, orchestration) in the github_orch worktree
+
+**Performed by:** Cline (agent) with Chinmay Duse (psyphon1)
+
+### Done
+
+1. **Orchestration package complete** (`feature/github_orch`, 3 TDD commits + 1 chore, per the plan's commit steps):
+   - `feat(orchestration): Redis Streams producer for priority-based job enqueue` (`9b986f2`) — `packages/orchestration/producer.py`: `enqueue_job(redis, priority, job)` XADDs `JobMessage.model_dump_json()` to `meridian:reviews:{priority}` (2 unit tests).
+   - `feat(orchestration): priority-ordered consumer loop with XREADGROUP` (`da28ece`) — `packages/orchestration/consumer.py`: `process_message` (bytes/str-tolerant parsing, calls async `on_job`) + `consume_loop` (XGROUP CREATE with `mkstream`, reads high → medium → low, `block=5000`, idle debug log; 2 unit tests).
+   - `feat(orchestration): ingest_webhook service with advisory lock + idempotency` (`016ef82`) — `packages/orchestration/ingestion.py`: `ingest_webhook` runs inside caller's transaction — advisory lock via `compute_lock_key(repo_id, pr_number, head_sha)`, delivery_id replay check → `IngestResult("replayed")`, else insert `webhook_deliveries` row (`enqueued=false`) → `IngestResult("accepted")` (2 integration tests — skip cleanly without Postgres).
+   - `chore: fix pre-existing ruff violations in pre-commit hook script` (`6bf52da`) — E501/SIM102/SIM110 in `scripts/pre_commit/no_env_files.py` (surfaced once the full-worktree gate was run).
+2. **Test/lint results (github_orch worktree):** ruff check ✅, ruff format ✅, mypy --strict `packages` ✅ (28 files), **70 passed, 3 skipped** (integration tests skip without Postgres; Docker daemon offline).
+3. Pushed `feature/github_orch` to origin (tip `6bf52da`).
+
+### Lessons / gotchas
+
+- The plan's consumer test passed a **sync** lambda as `on_job` but the implementation awaits it (`await None` → TypeError). Fixed the test to use an async handler — the `Callable[..., Awaitable[None]]` contract is the correct one.
+- Integration tests skip via the ephemeral-DB fixture before reaching in-function imports, so a missing module wouldn't visibly "fail" — relied on collection errors for unit tests and the fixture's explicit skip message for integration.
+- `contextlib.suppress` instead of `try/except/pass` (SIM105) for the pre-existing consumer-group race.
+
+### Next
+
+- [ ] M8 (Tasks 23–25, API app factory + routers) in the `api` worktree.
+- [ ] Stacked PRs: `github_orch` → `obs_sec`.
+
+---
+
+## Entry 15 — 2026-09-13: Phase 1 build M8 (Tasks 23–25, API app + routers) in the api worktree
+
+**Performed by:** Cline (agent) with Chinmay Duse (psyphon1)
+
+### Done
+
+1. **API application complete** (`feature/api`, stacked on `feature/github_orch` via `git reset --hard`, 3 commits in the plan's prescribed order 24 → 25 → 23):
+   - `feat(api): health (liveness) + ready (readiness) endpoints` (`cc3df70`) — `apps/api/routers/health.py`: `GET /health` (always 200) + `GET /ready` (DB `SELECT 1` + Redis `ping`, returns `not_ready` on failure instead of crashing).
+   - `feat(api): POST /v1/webhooks/github with HMAC verify + error envelope` (`7f0ec9c`) — `apps/api/routers/webhooks.py` + `apps/api/errors.py`: thin handler (raw body → headers → 400 missing sig → 401 invalid sig → event/action filter 200 `ignored` → `ingest_webhook` in `session.begin()` → 200 accepted/duplicate; 500 error envelope on internal error); Stripe-style `error_response` (spec §9.3).
+   - `feat(api): app factory with lifespan managing DB engine + Redis + GitHub client` (`04d1cc3`) — `apps/api/main.py` (`create_app`, lifespan wiring DB engine + session factory + Redis + `GitHubClient`), `apps/api/deps.py` (`get_settings_dep`, `get_db_session`), `apps/__init__.py` (mypy package-base marker).
+2. **Test/lint results (api worktree):** ruff check ✅, ruff format ✅, mypy --strict `packages apps` ✅ (36 files), **77 passed, 3 skipped** (7 new unit tests: app factory 1, health 2, webhooks 4).
+3. Pushed `feature/api` to origin (tip `04d1cc3`).
+
+### Lessons / gotchas
+
+- **FastAPI 0.141 differences vs. the plan's code:** `app.routes` no longer exposes nested included-router paths (`_IncludedRouter` has no `.path`) — assert via `app.openapi()["paths"]` instead; `app.router.lifespan_context = None` breaks `TestClient` (`TypeError`) — substitute a no-op async lifespan context manager.
+- **`get_settings` is `lru_cached`** — tests that monkeypatch env vars must call `get_settings.cache_clear()` or a later fixture reuses the first test's `GITHUB_WEBHOOK_SECRET` (would corrupt the HMAC test).
+- The `get_db_session` dependency resolves `app.state.session_factory` at request time — with lifespan bypassed, fixtures must stub the factory or every webhook test 500s before reaching the handler.
+- mypy needed `apps/__init__.py` to avoid dual module resolution (`api.deps` vs `apps.api.deps`).
+- `Depends(get_db_session)` in a default argument is FastAPI's canonical DI pattern — suppressed B008 with a comment.
+
+### Next
+
+- [ ] M9–M10 (Tasks 26–29, worker + e2e) in the `worker` worktree.
+- [ ] Stacked PRs: `api` → `github_orch`.
+
+---
+
+## Entry 16 — 2026-09-13: Phase 1 build M9–M10 (Tasks 26–29, worker + e2e) in the worker worktree — Phase 1 plan code-complete
+
+**Performed by:** Cline (agent) with Chinmay Duse (psyphon1)
+
+### Done
+
+1. **Worker + e2e complete** (`feature/worker`, stacked on `feature/api` via `git reset --hard`, 5 commits):
+   - `feat(worker): main entry point with consumer loop + signal handling` (`b85c4d4`) — `apps/worker/main.py` (`make_consumer_name` = hostname-pid, SIGTERM graceful stop, `asyncio.gather` of the three loops), `apps/worker/consumer.py` (`on_job` fetches payload by delivery_id, marks `processed=true` — full PR upsert deferred to Phase 2 per plan).
+   - `feat(worker): transactional outbox publisher with SKIP LOCKED + XADD` (`d1175f3`) — `apps/worker/outbox_publisher.py`: `build_job_message` + `publish_pending` (`SELECT ... FOR UPDATE SKIP LOCKED`, `enqueue_job`, mark `enqueued=true`) + 1s poll loop.
+   - `feat(worker): janitor loop with XAUTOCLAIM + XTRIM for stream hygiene` (`327fe69`) — `apps/worker/janitor.py`: 60s cycle claiming idle (>5 min) entries across all three streams + XTRIM (maxlen 10k) incl. dead-letter stream.
+   - `test: e2e pipeline test (webhook → outbox row) via ephemeral Postgres fixture` (`6928a52`) — `tests/e2e/test_webhook_to_review_run.py`: signed webhook → API → `webhook_deliveries` row persisted (`enqueued=false`, payload size > 0); skips cleanly without Postgres.
+   - `style: ruff format fixes across worker package and tests` (`1bbde3f`).
+2. **Test/lint results (worker worktree):** ruff check ✅, ruff format ✅, mypy --strict `packages apps` ✅ (41 files), **80 passed, 4 skipped** (3 new unit tests + 1 e2e; integration + e2e skip without Postgres).
+3. **Phase 1 plan status: all 29 tasks implemented.** Full-pipeline behavior (Redis Streams end-to-end, alembic migration on live PG) still requires `docker compose up -d` — integration/e2e suites are written and skip-safe.
+4. Pushed `feature/worker` to origin (tip `1bbde3f`).
+
+### Lessons / gotchas
+
+- **Plan bug caught:** Task 27's sample code passes `enqueued_at=func.now()` (a SQLAlchemy clause) into `JobMessage.enqueued_at: str` — Pydantic would reject it. Used `datetime.now(UTC).isoformat()` instead.
+- Avoided a circular import (`outbox_publisher` ↔ `main`) by keeping `make_consumer_name` only in `main.py`.
+- The janitor test's `fake_sleep` raises `SystemExit` (a `BaseException`) so it escapes the loop's `except Exception` — used `contextlib.suppress(SystemExit)` in the test (also satisfies SIM105).
+
+### Next
+
+- [ ] Open stacked PRs: `github_orch` → `obs_sec`, `api` → `github_orch`, `worker` → `api`.
+- [ ] After merges: run `docker compose up -d` + alembic upgrade + integration/e2e suites against live services.
+- [ ] Phase 2 backlog: risk-tier classification, installation-token API wiring, pgvector, review agent pipeline.
+
+
+
 
