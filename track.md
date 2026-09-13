@@ -393,4 +393,33 @@
 - [x] Open PRs (owner-approved 2026-09-13) — stacked series opened: **PR #1** `feature/config` → `main`, **PR #2** `feature/models` → `feature/config`, **PR #3** `feature/obs_sec` → `feature/models` (github_orch/api/worker are empty — no PRs until they have commits). Branches pushed; `main` (docs) pushed first to give PR #1 a clean base.
 - [ ] Optionally `docker compose up -d postgres redis` to exercise the integration test end-to-end
 
+---
+
+## Entry 13 — 2026-09-13: Phase 1 build M6 (Tasks 15–19, GitHub adapter) in the github_orch worktree
+
+**Performed by:** Cline (agent) with Chinmay Duse (psyphon1)
+
+### Done
+
+1. **GitHub adapter complete** (`feature/github_orch`, 5 sequential TDD commits, one per task, per the plan's commit steps):
+   - `feat(github): error hierarchy matching HTTP status codes` (`db49a33`) — `packages/github/errors.py`: `MeridianError` → `GitHubError` → `AuthenticationError` (401) / `RateLimitError` (429/403, carries `retry_after`) / `NotFoundError` (404) / `ValidationError` (422) / `ServerError` (5xx). Package `__init__.py` + `py.typed`.
+   - `feat(github): RS256 App JWT generation with 10-min expiry` (`4c0cb44`) — `packages/github/auth.py`: `generate_app_jwt(private_key, app_id)` via PyJWT, `iat` −60s clock-skew tolerance, `exp` = iat + 660.
+   - `feat(github): two-layer installation token cache (L1 in-memory + L2 Redis)` (`b88c551`) — `packages/github/token_cache.py`: `InstallationTokenCache.get_token` (L1 → L2 → GitHub fetch, writing both layers with TTL = expiry − 60s) and `invalidate`; injectable `fetch_token` for testing.
+   - `feat(github): allowed events/actions filter for webhook ingestion` (`f0031ab`) — `packages/github/webhooks.py`: `ALLOWED_EVENTS` (`pull_request`: opened/synchronize/reopened/edited; `installation`: created/deleted/new_permissions_accepted; `installation_repositories`: added/removed) + `is_event_allowed`.
+   - `feat(github): typed async API client with rate-limit error mapping` (`a6ae479`) — `packages/github/client.py`: `GitHubClient` with `get_pr_files` / `get_pr_diff` / `post_review` / `post_comment` over `httpx.AsyncClient`; `_check_response` maps status codes onto the Task-15 error hierarchy (reads `Retry-After` on 429/403).
+2. **Test/lint results (github_orch worktree):** ruff check ✅, ruff format ✅, mypy --strict on `packages/github` ✅ (6 files), **62/62 unit tests pass** (15 new: errors 3, auth 2, token cache 2, webhooks 6, client 2).
+3. TDD followed per task: failing test → minimal implementation → green. Not yet pushed (stack: PR #1–#3 must merge first; `feature/github_orch` sits on `feature/obs_sec`).
+
+### Lessons / gotchas
+
+- Running `ruff check --fix` before finishing an edit batch can strip imports that are *about to be used* (it removed `Any` from `client.py` mid-refactor) — re-run the full gate after each edit batch.
+- Ruff S105 flags fake token literals in tests (`"token-abc"`, `"mock.jwt.token"`) — suppressed with `# noqa: S105` since they are test fixtures, not secrets.
+- `InstallationTokenCache.get_token` L2 hit: Redis `get` returns `Any` → wrap with `str(...)` to keep mypy `--strict` (`no-any-return`) clean; client `resp.json()` wrapped in `cast(list[dict[str, Any]], ...)`.
+
+### Next
+
+- [ ] Await review/merge of PR #1 → #2 → #3, then open PRs for `github_orch` (and downstream) and push `feature/github_orch`.
+- [ ] M7 (Tasks 20–22, orchestration producer/consumer) in the `github_orch` worktree, continuing the stack.
+- [ ] Then `api` (M8) and `worker` (M9–M10) milestones.
+
 
