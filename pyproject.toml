@@ -67,7 +67,7 @@ security = [
   "semgrep>=1.70,<2",
 ]
 kms = [
-  "boto3>=1.34,<2",
+  "boto3>=1.43.92,<2",
 ]
 
 # Code lands under apps/, packages/, services/ in Phase 1 (PROJECT_STRUCTURE.md §1).
