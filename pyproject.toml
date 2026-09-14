@@ -40,7 +40,7 @@ dependencies = [
   "pgvector>=0.3,<1",
   "redis>=5.0,<6",
   # Orchestration / reasoning
-  "langgraph>=0.2,<1",
+  "langgraph>=1.2.11,<2",
   "litellm>=1.40,<2",
   # GitHub integration
   "httpx>=0.27,<1",
