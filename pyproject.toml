@@ -34,7 +34,7 @@ dependencies = [
   "pydantic>=2.7,<3",
   "pydantic-settings>=2.3,<3",
   # Data (PostgreSQL 16 + pgvector, Redis)
-  "sqlalchemy[asyncio]>=2.0,<3",
+  "sqlalchemy[asyncio]>=2.0.52,<3",
   "psycopg[binary]>=3.2,<4",
   "alembic>=1.13,<2",
   "pgvector>=0.3,<1",
