@@ -26,3 +26,11 @@ def test_rate_limit_carries_retry_after():
 def test_errors_are_catchable_as_github_error():
     with pytest.raises(GitHubError):
         raise NotFoundError("missing")
+
+
+def test_authorization_and_transport_errors_in_hierarchy():
+    from packages.github.errors import AuthorizationError, TransportError
+
+    assert issubclass(AuthorizationError, GitHubError)
+    assert not issubclass(AuthorizationError, RateLimitError)
+    assert issubclass(TransportError, GitHubError)
