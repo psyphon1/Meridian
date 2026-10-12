@@ -522,4 +522,5 @@
 3. `packages/observability/tracing.py`: added `extract_context(carrier) -> Context` (`opentelemetry.propagate.extract`) and `get_tracer`; `extract_traceparent` kept. In-memory-exporter test: inject → extract → child span shares trace id and parent span id.
 4. `packages/observability/logging.py`: redaction processor (recursive), `trace_id`/`span_id` from current OTel span, `delivery_id` via structlog contextvars (`bind_delivery_id`/`clear_delivery_id`), `format_exc_info` (production JSON), `normalize_log_level` (ValueError on unknown; same int used for stdlib + structlog), return type `FilteringBoundLogger` (no `type: ignore`), `logger=<name>` actually bound.
 5. Tautological tests in `test_logging.py`/`test_tracing.py` replaced with behavioral assertions.
-6. Results: ruff check ✅, ruff format --check ✅, mypy `packages` ✅ (18 files), `pytest --cov` → 75 passed, 1 skipped (integration needs Postgres); `tests/unit` → 71 passed.
+6. CI: `mypy apps packages services` failed because `apps/` does not exist on this branch; `.github/workflows/ci.yml` now type-checks only existing source dirs (`ci: run mypy only on source directories that exist`).
+7. Results: ruff check ✅, ruff format --check ✅, mypy `packages` ✅ (18 files), `pytest --cov` → 75 passed, 1 skipped (integration needs Postgres); `tests/unit` → 71 passed.
