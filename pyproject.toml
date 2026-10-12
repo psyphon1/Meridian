@@ -60,7 +60,6 @@ dev = [
   "pytest-cov>=5.0,<6",
   "ruff>=0.4,<1",
   "mypy>=1.10,<2",
-  "types-redis>=4.6",
   "pre-commit>=3.7,<4",
 ]
 security = [
@@ -79,6 +78,10 @@ packages = []
 line-length = 100
 target-version = "py312"
 src = ["apps", "packages", "services"]
+
+[tool.ruff.format]
+# Docs embed illustrative (non-runnable) Python snippets; formatting them rewrites design docs.
+exclude = ["*.md"]
 
 [tool.ruff.lint]
 select = ["E", "F", "W", "I", "N", "UP", "B", "C4", "SIM", "RUF", "ASYNC", "S", "T20"]
