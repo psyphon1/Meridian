@@ -1,5 +1,3 @@
-from typing import cast
-
 from redis.asyncio import Redis
 
 from packages.config.settings import Settings
@@ -13,5 +11,5 @@ CONSUMER_GROUP = "meridian-workers"
 
 def create_redis_client(settings: Settings) -> Redis:
     """Create an async Redis client from settings."""
-    client = Redis.from_url(settings.redis_url, decode_responses=True)
-    return cast("Redis", client)
+    client: Redis = Redis.from_url(settings.redis_url, decode_responses=True)
+    return client
