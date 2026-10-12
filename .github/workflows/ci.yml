@@ -39,10 +39,15 @@ jobs:
         run: ruff format --check .
       - name: Type-check (when source exists)
         run: |
-          if compgen -G "apps/**/*.py" > /dev/null || \
-             compgen -G "packages/**/*.py" > /dev/null || \
-             compgen -G "services/**/*.py" > /dev/null; then
-            mypy apps packages services
+          # Only pass directories that exist: mypy errors on a missing path.
+          targets=()
+          for d in apps packages services; do
+            if [ -d "$d" ] && [ -n "$(find "$d" -name '*.py' -print -quit)" ]; then
+              targets+=("$d")
+            fi
+          done
+          if [ "${#targets[@]}" -gt 0 ]; then
+            mypy "${targets[@]}"
           else
             echo "No Python source yet — skipping mypy."
           fi
