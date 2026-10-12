@@ -81,7 +81,7 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 20
-          cache: pnpm
+          # No pnpm-lock.yaml yet; re-enable `cache: pnpm` once a lockfile is committed.
       - name: Install
         run: pnpm install --frozen-lockfile=false
       - name: Lint & typecheck
