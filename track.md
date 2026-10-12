@@ -514,3 +514,12 @@
 
 
 
+
+## Entry 17 — 2026-10-12: PR #3 review fixes (`feature/obs_sec`)
+
+1. `packages/security/hmac_verify.py`: compare as bytes (`.encode()` both sides) so non-ASCII/lone-surrogate headers return `False` instead of raising `TypeError`; +6 tests (non-ASCII, surrogate, empty header, empty body ×2, wrong prefix).
+2. `packages/security/advisory_lock.py`: follows ADR-006 (Idempotency) — `compute_lock_key(...) -> str` builds `"{repo_id}:{pr_number}:{head_sha}"`; `acquire_advisory_lock(session, key: str)` executes `SELECT pg_advisory_xact_lock(hashtextextended(:key, 0))`. Removed false "SHA-256 … (ADR-006)" docstring citation. Golden-value + mocked-`AsyncSession` SQL/param tests.
+3. `packages/observability/tracing.py`: added `extract_context(carrier) -> Context` (`opentelemetry.propagate.extract`) and `get_tracer`; `extract_traceparent` kept. In-memory-exporter test: inject → extract → child span shares trace id and parent span id.
+4. `packages/observability/logging.py`: redaction processor (recursive), `trace_id`/`span_id` from current OTel span, `delivery_id` via structlog contextvars (`bind_delivery_id`/`clear_delivery_id`), `format_exc_info` (production JSON), `normalize_log_level` (ValueError on unknown; same int used for stdlib + structlog), return type `FilteringBoundLogger` (no `type: ignore`), `logger=<name>` actually bound.
+5. Tautological tests in `test_logging.py`/`test_tracing.py` replaced with behavioral assertions.
+6. Results: ruff check ✅, ruff format --check ✅, mypy `packages` ✅ (18 files), `pytest --cov` → 75 passed, 1 skipped (integration needs Postgres); `tests/unit` → 71 passed.
