@@ -4,7 +4,8 @@ Meridian — Pre-commit local hook: blocks .env files and hardcoded secrets.
 
 Scans staged files for:
 - Any file matching .env* or *.env (except .env.example)
-- Files containing hardcoded secret patterns (GITHUB_PRIVATE_KEY, DATABASE_URL with creds, KMS_MASTER_KEY, etc.)
+- Files containing hardcoded secret patterns (GITHUB_PRIVATE_KEY,
+  DATABASE_URL with creds, KMS_MASTER_KEY, etc.)
 
 Usage: run automatically by pre-commit framework.
 See docs/DEVELOPER_STANDARDS.md §7 and docs/SECURITY.md §2.1.
@@ -35,8 +36,12 @@ SECRET_PATTERNS = [
     re.compile(r"GITHUB_PRIVATE_KEY\s*=\s*['\"]?(?!your-|placeholder|dummy|example|fake)[^\s'\"]+"),
     re.compile(r"DATABASE_URL\s*=\s*.+://[^:]+:[^@]+@"),  # Contains password in URL
     re.compile(r"KMS_MASTER_KEY\s*=\s*['\"]?(?!your-|placeholder|dummy|example|fake)[^\s'\"]+"),
-    re.compile(r"GITHUB_WEBHOOK_SECRET\s*=\s*['\"]?(?!your-|placeholder|dummy|example|fake)[^\s'\"]+"),
-    re.compile(r"AWS_SECRET_ACCESS_KEY\s*=\s*['\"]?(?!your-|placeholder|dummy|example|fake)[^\s'\"]+"),
+    re.compile(
+        r"GITHUB_WEBHOOK_SECRET\s*=\s*['\"]?(?!your-|placeholder|dummy|example|fake)[^\s'\"]+"
+    ),
+    re.compile(
+        r"AWS_SECRET_ACCESS_KEY\s*=\s*['\"]?(?!your-|placeholder|dummy|example|fake)[^\s'\"]+"
+    ),
     re.compile(r"sk-[a-zA-Z0-9]{20,}"),  # OpenAI-style API key
 ]
 
@@ -55,10 +60,7 @@ def is_blocked_filename(filepath: Path) -> bool:
     name = filepath.name
     if name in ALLOWED_FILENAMES:
         return False
-    for pattern in BLOCKED_FILENAME_PATTERNS:
-        if fnmatch.fnmatch(name, pattern):
-            return True
-    return False
+    return any(fnmatch.fnmatch(name, pattern) for pattern in BLOCKED_FILENAME_PATTERNS)
 
 
 def scan_file_for_secrets(filepath: Path) -> list[str]:
@@ -73,7 +75,9 @@ def scan_file_for_secrets(filepath: Path) -> list[str]:
     for pattern in SECRET_PATTERNS:
         for match in pattern.finditer(content):
             line_num = content[: match.start()].count("\n") + 1
-            issues.append(f"  {relative}:{line_num} — matched secret pattern: {pattern.pattern[:40]}...")
+            issues.append(
+                f"  {relative}:{line_num} — matched secret pattern: {pattern.pattern[:40]}..."
+            )
     return issues
 
 
@@ -85,9 +89,8 @@ def main() -> int:
         if not filepath.is_file():
             continue
         # Skip .git, venvs, caches
-        if any(part.startswith(".") and part not in {".env.example"} for part in filepath.parts):
-            if ".git" in filepath.parts or ".venv" in filepath.parts or "__pycache__" in filepath.parts:
-                continue
+        if ".git" in filepath.parts or ".venv" in filepath.parts or "__pycache__" in filepath.parts:
+            continue
 
         if is_blocked_filename(filepath):
             issues.append(f"  Blocked filename: {filepath.relative_to(REPO_ROOT).as_posix()}")
