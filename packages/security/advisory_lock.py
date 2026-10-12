@@ -1,26 +1,33 @@
-import hashlib
+"""PostgreSQL advisory-lock helpers for webhook ingestion (ADR-006, idempotency layer 2).
+
+ADR-006 (Idempotency) mandates::
+
+    pg_advisory_xact_lock(hashtextextended(repo_id || ':' || pr_number || ':' || head_sha, 0))
+
+The Python side only builds the key string; hashing to a 64-bit lock id is done
+in SQL by ``hashtextextended`` so the derivation matches the ADR exactly.
+"""
 
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
+_ACQUIRE_LOCK_SQL = "SELECT pg_advisory_xact_lock(hashtextextended(:key, 0))"
 
-def compute_lock_key(repo_id: int, pr_number: int, head_sha: str) -> int:
-    """Compute a 64-bit advisory lock key from repo_id, pr_number, head_sha.
 
-    Uses a SHA-256 digest of the composite key, truncated to a signed 64-bit
-    int. Deterministic; collisions are astronomically rare (ADR-006).
+def compute_lock_key(repo_id: int, pr_number: int, head_sha: str) -> str:
+    """Build the deterministic lock-key string ``"{repo_id}:{pr_number}:{head_sha}"``.
+
+    The result is passed to :func:`acquire_advisory_lock`, which hashes it in SQL
+    with ``hashtextextended(key, 0)`` as specified by ADR-006.
     """
-    raw = f"{repo_id}:{pr_number}:{head_sha}"
-    h = hashlib.sha256(raw.encode()).digest()
-    return int.from_bytes(h[:8], byteorder="big", signed=True)
+    return f"{repo_id}:{pr_number}:{head_sha}"
 
 
-async def acquire_advisory_lock(session: AsyncSession, key: int) -> None:
-    """Acquire a transaction-scoped PostgreSQL advisory lock.
+async def acquire_advisory_lock(session: AsyncSession, key: str) -> None:
+    """Acquire a transaction-scoped advisory lock for ``key``.
 
-    Uses pg_advisory_xact_lock — released on commit/rollback.
+    Executes ``SELECT pg_advisory_xact_lock(hashtextextended(:key, 0))``. The
+    lock is released automatically on commit or rollback of the session's
+    transaction.
     """
-    await session.execute(
-        text("SELECT pg_advisory_xact_lock(:key)"),
-        {"key": key},
-    )
+    await session.execute(text(_ACQUIRE_LOCK_SQL), {"key": key})
