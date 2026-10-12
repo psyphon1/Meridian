@@ -514,3 +514,18 @@
 
 
 
+## Entry 17 — 2026-10-12: PR #4 review fixes (orchestration + GitHub adapter)
+
+**Performed by:** Kiro (agent) with Chinmay Duse (psyphon1)
+
+### Done
+
+1. `packages/orchestration/consumer.py`: handles real `XREADGROUP` replies (RESP2 list / RESP3 dict, str or bytes — verified against Redis 8.10.2 with redis-py 5.3.1); `XACK` only after `on_job` succeeds (ADR-006 D6); failed/malformed entries stay pending for the janitor; only `BUSYGROUP` is swallowed; non-blocking priority pass then one blocking read across all lanes; `running()` for graceful stop.
+2. `packages/orchestration/ingestion.py` + `errors.py`: per-event payload routing, `WebhookPayloadError` (`webhook.payload_invalid`), layer-3 `(PR, head SHA)` RECEIVED-run check, OTel span + structured logs, single JSON parse.
+3. `packages/github/`: authenticated client (installation token / App JWT), real token-mint fetcher, 401 refresh-and-retry once, 403 split (`RateLimitError` vs `AuthorizationError`), Retry-After seconds/HTTP-date, backoff + jitter (max 3), typed models (`types.py`), `token_cache` with Protocol-injected store and equal L1/L2 expiry.
+4. Fixed a latent bug: `generate_app_jwt` passed an int `iss`, which PyJWT >= 2.10 rejects (`TypeError`); now `str(app_id)`.
+
+### Lessons / gotchas
+
+- Mocked-`jwt.encode` tests hid the `iss` bug; added an unmocked RSA round-trip test.
+- structlog's `event` kwarg collides with the log message positional; use `webhook_event`.
