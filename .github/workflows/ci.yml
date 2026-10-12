@@ -39,10 +39,12 @@ jobs:
         run: ruff format --check .
       - name: Type-check (when source exists)
         run: |
-          if compgen -G "apps/**/*.py" > /dev/null || \
-             compgen -G "packages/**/*.py" > /dev/null || \
-             compgen -G "services/**/*.py" > /dev/null; then
-            mypy apps packages services
+          targets=()
+          for d in apps packages services; do
+            if compgen -G "$d/**/*.py" > /dev/null; then targets+=("$d"); fi
+          done
+          if [ "${#targets[@]}" -gt 0 ]; then
+            mypy "${targets[@]}"
           else
             echo "No Python source yet — skipping mypy."
           fi
