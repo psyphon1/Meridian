@@ -73,7 +73,7 @@ Phase 1 delivers the foundation of Meridian: a GitHub App that receives webhook 
 
 **Decision:** All API errors follow a Stripe-style structured envelope: `{ "error": { "type": "...", "code": "...", "message": "...", "param": "...", "request_id": "...", "doc_url": "..." } }`. `type` is the broad category (`webhook`, `auth`, `rate_limit`, `validation`, `internal`); `code` is the specific machine-readable string (namespaced, e.g., `webhook.signature_invalid`). Webhook signature verification returns 401 (GitHub convention: bad signatures are auth failures, not malformed requests — deliberate deviation from Stripe's 400).
 
-**Codified webhook error codes:** `webhook.signature_missing` (400), `webhook.signature_invalid` (401), `webhook.event_ignored` (200), `webhook.payload_invalid` (400), `webhook.idempotent_replay` (200), `webhook.duplicate_pr_sha` (200), `internal_error` (500).
+**Codified webhook error codes:** `webhook.signature_missing` (400), `webhook.signature_invalid` (401), `webhook.event_ignored` (200), `webhook.payload_invalid` (400), `webhook.delivery_id_missing` (400), `webhook.payload_too_large` (413), `webhook.idempotent_replay` (200), `webhook.duplicate_pr_sha` (200), `internal_error` (500).
 
 **Rationale:** Machine-readable taxonomy; dual-level type+code matches industry standard; `request_id` enables trace correlation; `doc_url` enables consumer self-service. Updates `CODE_STANDARDS.md §3` in the same change set.
 
