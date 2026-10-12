@@ -5,6 +5,7 @@ from typing import Any
 
 import pytest
 from redis.asyncio import Redis
+from redis.exceptions import RedisError
 
 
 @pytest.fixture
@@ -15,7 +16,11 @@ async def redis_client() -> AsyncIterator[Redis]:
     host = os.environ.get("MERIDIAN_TEST_REDIS_HOST", "localhost")
     port = int(os.environ.get("MERIDIAN_TEST_REDIS_PORT", "6379"))
     client: Redis[Any] = Redis(host=host, port=port, db=15, decode_responses=True)
-    await client.flushdb()
+    try:
+        await client.flushdb()
+    except RedisError as exc:
+        await client.aclose()
+        pytest.skip(f"Redis not reachable for integration test: {exc}")
     yield client
     await client.flushdb()
     await client.aclose()

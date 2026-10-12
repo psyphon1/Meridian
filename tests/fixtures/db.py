@@ -3,8 +3,7 @@
 from collections.abc import AsyncIterator
 
 import pytest
-from packages.config.database import create_db_engine
-from sqlalchemy.ext.asyncio import AsyncEngine
+from sqlalchemy.ext.asyncio import AsyncEngine, create_async_engine
 
 
 @pytest.fixture
@@ -24,7 +23,6 @@ def pg_url() -> str:
 async def db_engine(pg_url: str) -> AsyncIterator[AsyncEngine]:
     """Create a unique throwaway database, yield an engine, then drop it."""
     from sqlalchemy import text
-    from sqlalchemy.ext.asyncio import create_async_engine
 
     admin_engine = create_async_engine(pg_url, isolation_level="AUTOCOMMIT")
     try:
@@ -37,7 +35,7 @@ async def db_engine(pg_url: str) -> AsyncIterator[AsyncEngine]:
     await admin_engine.dispose()
 
     url = pg_url.rsplit("/", 1)[0] + f"/{test_db_name}"
-    engine = create_db_engine(url)
+    engine = create_async_engine(url, pool_pre_ping=True)
     yield engine
     await engine.dispose()
 

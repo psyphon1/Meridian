@@ -1,31 +1,34 @@
-"""E2E test — webhook → API → Postgres outbox row (Task 29).
+"""E2E test — signed webhook → API → outbox row → publisher → Redis → consumer → processed.
 
-Requires PostgreSQL (uses the ephemeral per-test database fixture, which
-skips cleanly when PG is unreachable). Redis is exercised separately in
-integration tests; the outbox publisher path is covered by unit tests.
+Requires BOTH PostgreSQL (``db_engine`` fixture) and Redis (``redis_client`` fixture);
+each skips cleanly when its service is unreachable. Point them at throwaway servers
+with ``MERIDIAN_TEST_PG_*`` / ``MERIDIAN_TEST_REDIS_*``.
+
+Phase 1 scope: ``on_job`` marks the ``webhook_deliveries`` row processed; it does not
+create a ``review_run`` (spec §8 upserts are deferred), so that is what is asserted.
 """
 
+import asyncio
 import hashlib
 import hmac
 import json
 
 import pytest
+from apps.worker.consumer import run_consumer_loop
+from apps.worker.outbox_publisher import publish_pending
 from fastapi.testclient import TestClient
+from packages.config.redis import CONSUMER_GROUP, STREAM_MEDIUM
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import async_sessionmaker
+
+from tests.fakes import eventually
 
 pytestmark = pytest.mark.e2e
 
 
 @pytest.mark.asyncio
-async def test_full_pipeline_webhook_to_processed(db_engine, monkeypatch):
-    """E2E: webhook → API → Postgres outbox → (worker marks processed).
-
-    This test exercises the full ingestion path without a live Redis
-    (the outbox publisher is tested separately in integration). It verifies
-    that a valid webhook creates a webhook_delivery row that the worker
-    can later mark processed.
-    """
+async def test_webhook_to_processed_through_real_pipeline(db_engine, redis_client, monkeypatch):
+    """webhook → API → outbox (enqueued=false) → publish_pending → stream → consumer → processed."""
     import packages.models.audit
     import packages.models.identity
     import packages.models.repository
@@ -88,3 +91,38 @@ async def test_full_pipeline_webhook_to_processed(db_engine, monkeypatch):
         assert deliv.event == "pull_request"
         assert deliv.enqueued is False
         assert deliv.payload_size_bytes > 0
+
+    # Outbox publisher: XADD to the medium stream and mark the row enqueued.
+    result = await publish_pending(redis_client, factory)
+    assert result.published == 1 and result.failed == 0
+    assert await redis_client.xlen(STREAM_MEDIUM) == 1
+
+    # Consumer: processes the job, commits, then XACKs.
+    stop = asyncio.Event()
+    task = asyncio.create_task(run_consumer_loop(redis_client, factory, "e2e-consumer", stop))
+
+    async def is_processed() -> bool:
+        async with factory() as session:
+            row = (
+                await session.execute(
+                    select(WebhookDelivery).where(WebhookDelivery.delivery_id == "e2e-delivery-1")
+                )
+            ).scalar_one()
+        return bool(row.processed)
+
+    try:
+        await eventually(is_processed, within_s=15)
+    finally:
+        stop.set()
+        await asyncio.wait_for(task, 5)
+
+    async with factory() as session:
+        row = (
+            await session.execute(
+                select(WebhookDelivery).where(WebhookDelivery.delivery_id == "e2e-delivery-1")
+            )
+        ).scalar_one()
+    assert row.enqueued is True
+    assert row.processed_at is not None
+    pending = await redis_client.xpending(STREAM_MEDIUM, CONSUMER_GROUP)
+    assert pending["pending"] == 0  # acked after commit
