@@ -511,6 +511,17 @@
 - [ ] After merges: run `docker compose up -d` + alembic upgrade + integration/e2e suites against live services.
 - [ ] Phase 2 backlog: risk-tier classification, installation-token API wiring, pgvector, review agent pipeline.
 
+---
 
+## Entry 17 — 2026-10-12: PR #1 (`feature/config`) review fixes
 
+**Performed by:** Kiro (agent) with Chinmay Duse (psyphon1)
+
+### Done
+
+1. Merged `origin/main` (CI baseline fix #25: `types-redis` removed) into `feature/config`; `mypy packages` is strict-clean.
+2. `packages/config/redis.py`: replaced `cast("Redis", ...)` with an annotated assignment (`client: Redis = Redis.from_url(...)`) — `redis-py` 5.x `from_url` returns `Any`, so removing the cast outright triggers `no-any-return`.
+3. `packages/config/settings.py`: `github_private_key` and `github_webhook_secret` are now `SecretStr` (read via `.get_secret_value()`); `app_env` is `Literal["development","staging","production","test"]`. Spec §10.1 and `.env.example` updated.
+4. Tests: `repr()`/`str()` of `Settings` hide secrets; `app_env` valid/invalid values; `get_settings` caching + `cache_clear`; `get_session` yield/close (incl. exception path); `create_db_engine` echo flag.
+5. Local results: ruff check ✅, ruff format --check ✅, `mypy packages` ✅, pytest 26 passed, coverage 100% (gate 80%).
 
