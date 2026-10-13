@@ -40,3 +40,11 @@ def test_webhook_delivery_columns():
 
 def test_webhook_delivery_id_unique():
     assert sa_inspect(WebhookDelivery).columns["delivery_id"].unique is True
+
+
+def test_webhook_outbox_index_is_partial_on_enqueued_false():
+    (idx,) = [
+        i for i in WebhookDelivery.__table__.indexes if i.name == "idx_webhook_enqueued_false"
+    ]
+    assert [c.name for c in idx.columns] == ["enqueued"]
+    assert str(idx.dialect_options["postgresql"]["where"]) == "enqueued = false"

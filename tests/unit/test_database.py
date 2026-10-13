@@ -1,5 +1,10 @@
 import pytest
-from packages.config.database import create_db_engine, create_session_factory, get_session
+from packages.config.database import (
+    create_db_engine,
+    create_db_engine_from_url,
+    create_session_factory,
+    get_session,
+)
 from packages.config.settings import Settings
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker
 
@@ -80,3 +85,10 @@ async def test_get_session_closes_session_when_consumer_raises(
     with pytest.raises(RuntimeError, match="boom"):
         await gen.athrow(RuntimeError("boom"))
     assert closed == [session]
+
+
+def test_create_db_engine_from_url_returns_async_engine_without_settings() -> None:
+    engine = create_db_engine_from_url(_DB_URL)
+    assert isinstance(engine, AsyncEngine)
+    assert engine.echo is False
+    assert engine.url.render_as_string(hide_password=False) == _DB_URL

@@ -6,8 +6,10 @@ from typing import Any
 from sqlalchemy import (
     BigInteger,
     Boolean,
+    DateTime,
     Float,
     ForeignKey,
+    Index,
     Integer,
     String,
     Text,
@@ -33,6 +35,7 @@ class PullRequest(Base, TimestampMixin):
     __tablename__ = "pull_requests"
     __table_args__ = (
         UniqueConstraint("repository_id", "github_pr_number", name="uq_pr_repo_number"),
+        Index("ix_pull_requests_state", "state"),
     )
 
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
@@ -49,20 +52,32 @@ class PullRequest(Base, TimestampMixin):
 
 
 class ReviewRun(Base, TimestampMixin):
-    """One execution of the review pipeline for a PR head SHA."""
+    """One execution of the review pipeline for a PR head SHA.
+
+    ``head_sha`` is the PR head this run reviewed (spec §5.2, ADR-006 idempotency
+    layer 3). ``pull_requests.head_sha`` is the PR's *current* head and moves on
+    every push; ``review_runs.head_sha`` is immutable per run, so a redelivered
+    webhook for the same (pull_request_id, head_sha) can be detected.
+    """
 
     __tablename__ = "review_runs"
+    __table_args__ = (
+        Index("ix_review_runs_pull_request", "pull_request_id"),
+        Index("ix_review_runs_status", "status"),
+        Index("ix_review_runs_pr_head_sha", "pull_request_id", "head_sha"),
+    )
 
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
     pull_request_id: Mapped[int] = mapped_column(
         BigInteger, ForeignKey("pull_requests.id"), nullable=False
     )
+    head_sha: Mapped[str] = mapped_column(String(40), nullable=False)
     status: Mapped[str] = mapped_column(String(30), nullable=False, default=ReviewStatus.RECEIVED)
     risk_tier: Mapped[str | None] = mapped_column(
         String(10), nullable=True, default=RiskTier.MEDIUM
     )
-    started_at: Mapped[datetime | None] = mapped_column(nullable=True)
-    completed_at: Mapped[datetime | None] = mapped_column(nullable=True)
+    started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     error_message: Mapped[str | None] = mapped_column(Text, nullable=True)
 
 
@@ -85,6 +100,10 @@ class Finding(Base, CreatedAtMixin):
     """A review finding tied to a review run."""
 
     __tablename__ = "findings"
+    __table_args__ = (
+        Index("ix_findings_review_run", "review_run_id"),
+        Index("ix_findings_severity", "severity"),
+    )
 
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
     review_run_id: Mapped[int] = mapped_column(
@@ -108,6 +127,7 @@ class ToolRun(Base, CreatedAtMixin):
     """Record of a single tool execution inside a review run."""
 
     __tablename__ = "tool_runs"
+    __table_args__ = (Index("ix_tool_runs_run", "review_run_id"),)
 
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
     review_run_id: Mapped[int] = mapped_column(
@@ -123,6 +143,7 @@ class ReviewMemory(Base, TimestampMixin):
     """Per-repository durable memory (JSONB)."""
 
     __tablename__ = "review_memory"
+    __table_args__ = (UniqueConstraint("repository_id", "key", name="uq_review_memory_repo_key"),)
 
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
     repository_id: Mapped[int] = mapped_column(
