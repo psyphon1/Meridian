@@ -64,6 +64,8 @@ Hooks run automatically on every `git commit` and `git push`. Never bypass with 
 
 - Python: `ruff` + `mypy` strict (see CODE_STANDARDS.md); TypeScript: `tsc --strict` + `eslint` + `prettier`.
 - DB schema changes only via `db/migrations/` (never edit `db/schema/` by hand) — see ADR-006 rule in DEPLOYMENT.md on backward-compatible migrations.
+- Run migrations from the repo root: `DATABASE_URL=... alembic -c db/migrations/alembic.ini upgrade head` (`downgrade base` to revert). Requires the `pgvector` extension on the server (the `pgvector/pgvector` compose image has it).
+- DB integration tests (`pytest tests/integration`) need `MERIDIAN_TEST_DATABASE_URL`, an admin URL such as `postgresql+psycopg://<user>@localhost:5432/postgres` (supply credentials via your shell, never commit them); they skip when it is unset or the server is unreachable. Each test creates and drops its own throwaway database.
 - Prompts live in `prompts/` — version-controlled, never inline in code.
 - Never commit `.env`; the repo's litmus test is that it could be made public without leaking credentials (12-factor).
 
