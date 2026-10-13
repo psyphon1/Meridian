@@ -8,8 +8,9 @@ after the maximum attempts, dead-letter it.
 
 Read strategy: first a non-blocking pass over high → medium → low (strict
 priority), then — only when all three are empty — a single blocking
-``XREADGROUP`` across all three streams. This avoids the 3 sequential 5 s blocks latency of
-blocking on each stream in turn while still draining higher lanes first.
+``XREADGROUP`` across all three streams. This avoids the latency of three
+sequential 5 s blocks (one per stream, in turn) while still draining higher
+lanes first.
 """
 
 import asyncio
@@ -21,7 +22,6 @@ import structlog
 from opentelemetry import propagate, trace
 from redis.asyncio import Redis
 from redis.exceptions import RedisError, ResponseError
-from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from packages.config.redis import CONSUMER_GROUP, STREAM_HIGH, STREAM_LOW, STREAM_MEDIUM
 from packages.models.schemas import JobMessage
@@ -225,7 +225,6 @@ async def _read(
 
 async def consume_loop(
     redis: Redis,
-    session_factory: async_sessionmaker[AsyncSession],
     consumer_name: str,
     on_job: JobHandler,
     running: Callable[[], bool] = lambda: True,
@@ -235,13 +234,12 @@ async def consume_loop(
 ) -> None:
     """Main consumer loop — drains high → medium → low in strict priority order.
 
-    ``session_factory`` is accepted for API stability; ``on_job`` owns its own
-    transaction (it must commit before returning — the ack follows). ``running``
+    ``on_job`` owns its own database transaction (it must commit before
+    returning — the ack follows), so no session factory is taken. ``running``
     is polled between reads; when it returns ``False`` the loop finishes the
     entries already read, then returns (graceful drain). Transport errors are
     logged and retried with a short backoff; they never terminate the loop.
     """
-    del session_factory  # handlers own their transactions (see docstring)
     await ensure_consumer_groups(redis, group)
 
     while running():

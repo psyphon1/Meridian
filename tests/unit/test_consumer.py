@@ -141,14 +141,14 @@ async def test_consume_loop_priority_order_and_acks(resp3):
     r.add(STREAM_MEDIUM, make_job("med").model_dump_json())
     r.add(STREAM_HIGH, make_job("high").model_dump_json())
     rec = Recorder()
-    await consume_loop(r, None, "c1", rec, running=StopAfter(5))  # type: ignore[arg-type]
+    await consume_loop(r, "c1", rec, running=StopAfter(5))  # type: ignore[arg-type]
     assert [j.delivery_id for j in rec.jobs] == ["high", "med", "low"]
     assert len(r.acked) == 3
 
 
 async def test_consume_loop_blocks_once_across_all_streams_when_idle():
     r = FakeStreamRedis()
-    await consume_loop(r, None, "c1", Recorder(), running=StopAfter(1), block_ms=50)  # type: ignore[arg-type]
+    await consume_loop(r, "c1", Recorder(), running=StopAfter(1), block_ms=50)  # type: ignore[arg-type]
     blocking = [c for c in r.read_calls if c["block"]]
     non_blocking = [c for c in r.read_calls if not c["block"]]
     assert len(blocking) == 1
@@ -162,7 +162,7 @@ async def test_poison_and_failing_messages_do_not_kill_loop():
     r.add(STREAM_HIGH, make_job("boom").model_dump_json())  # handler raises
     r.add(STREAM_HIGH, make_job("good").model_dump_json())
     rec = Recorder(fail_on={"boom"})
-    await consume_loop(r, None, "c1", rec, running=StopAfter(6))  # type: ignore[arg-type]
+    await consume_loop(r, "c1", rec, running=StopAfter(6))  # type: ignore[arg-type]
     assert [j.delivery_id for j in rec.jobs] == ["good"]
     assert [a[2] for a in r.acked] == ["3-0"]  # only the good one acked
 
@@ -178,7 +178,7 @@ async def test_consume_loop_survives_redis_read_errors(monkeypatch):
     r.fail_reads = 2
     r.add(STREAM_LOW, make_job("late").model_dump_json())
     rec = Recorder()
-    await consume_loop(r, None, "c1", rec, running=StopAfter(6))  # type: ignore[arg-type]
+    await consume_loop(r, "c1", rec, running=StopAfter(6))  # type: ignore[arg-type]
     assert [s for s in sleeps if s] == [1.0, 1.0]  # fake redis also yields via sleep(0)
     assert [j.delivery_id for j in rec.jobs] == ["late"]
 
@@ -187,6 +187,6 @@ async def test_consume_loop_stops_when_running_false():
     r = FakeStreamRedis()
     r.add(STREAM_LOW, make_job().model_dump_json())
     rec = Recorder()
-    await consume_loop(r, None, "c1", rec, running=lambda: False)  # type: ignore[arg-type]
+    await consume_loop(r, "c1", rec, running=lambda: False)  # type: ignore[arg-type]
     assert rec.jobs == []
     assert r.read_calls == []

@@ -64,7 +64,7 @@ def _installation_id(model: InstallationPayload) -> int:
     return raw
 
 
-def _lock_key(model: BaseModel, delivery_id: str) -> int:
+def _lock_key(model: BaseModel, delivery_id: str) -> str:
     """Advisory-lock key: (repo, PR, head SHA) for PRs, else (installation, delivery)."""
     if isinstance(model, PullRequestPayload):
         return compute_lock_key(
@@ -110,7 +110,7 @@ async def ingest_webhook(
 ) -> IngestResult:
     """Core ingestion logic — runs inside the **caller's** transaction.
 
-    Deviation from ADR-006 D1 (documented in the PR): this function does not open
+    Per the ADR-006 D1 amendment (2026-10-13): this function does not open
     ``session.begin()`` itself; the route wraps the call in ``async with
     session.begin():`` so the advisory lock (``pg_advisory_xact_lock``) is held
     until that block commits/rolls back. Calling it outside a transaction would

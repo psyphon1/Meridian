@@ -25,9 +25,7 @@ async def _run_until(redis, handler, predicate, *, polls: int = 250) -> None:
     """Run consume_loop in the background until `predicate()` (max polls x 20 ms)."""
     state = {"stop": False}
     task = asyncio.create_task(
-        consume_loop(
-            redis, None, "worker-1", handler, running=lambda: not state["stop"], block_ms=100
-        )
+        consume_loop(redis, "worker-1", handler, running=lambda: not state["stop"], block_ms=100)
     )
     try:
         for _ in range(polls):
