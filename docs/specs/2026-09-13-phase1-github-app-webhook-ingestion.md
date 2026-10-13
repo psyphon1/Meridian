@@ -744,7 +744,7 @@ async def lifespan(app: FastAPI):
 | Method | Path | Purpose |
 |---|---|---|
 | GET | `/v1/health` | Liveness — always returns 200 |
-| GET | `/v1/ready` | Readiness — checks DB + Redis connectivity |
+| GET | `/v1/ready` | Readiness — checks DB + Redis connectivity; 200 `{"status":"ready"}`, or 503 `{"status":"not_ready","failed":["database"|"redis"]}` |
 | POST | `/v1/webhooks/github` | Webhook ingestion — verify, persist, enqueue, ack |
 
 ### 9.3 Error Envelope
@@ -779,7 +779,9 @@ All API errors follow a Stripe-style structured envelope (ADR-006, updating `COD
 | `webhook.signature_missing` | 400 | `X-Hub-Signature-256` header absent |
 | `webhook.signature_invalid` | 401 | HMAC verification failed (401: auth failure per GitHub convention, not 400) |
 | `webhook.event_ignored` | 200 | Event/action not in allowed set (success, not error — body: `{"status":"ignored"}`) |
-| `webhook.payload_invalid` | 400 | JSON parse error or Pydantic validation failure |
+| `webhook.payload_invalid` | 400 | JSON parse error, body not a JSON object, non-string `action`, missing required top-level object, or Pydantic validation failure |
+| `webhook.delivery_id_missing` | 400 | `X-GitHub-Delivery` header absent, blank, or longer than 255 characters |
+| `webhook.payload_too_large` | 413 | Request body exceeds 25 MB (GitHub's webhook maximum) |
 | `webhook.idempotent_replay` | 200 | Same `delivery_id` already processed (success — body: `{"status":"duplicate"}`) |
 | `webhook.duplicate_pr_sha` | 200 | Different `delivery_id`, same `(pr_number, head_sha)` already has RECEIVED run (success) |
 | `internal_error` | 500 | Unexpected exception (no internal details leaked) |

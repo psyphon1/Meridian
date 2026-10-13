@@ -26,12 +26,13 @@ setup: ## Create venv, install Python + frontend dependencies
 	pnpm install
 
 .PHONY: dev
-dev: ## Start backing services (api/worker/web run directly in Phase 1)
+dev: ## Start backing services, then run the API (app factory) with reload on :8000
 	docker compose up -d postgres redis
+	$(PYTHON) -m uvicorn apps.api.main:create_app --factory --reload --host 0.0.0.0 --port 8000
 
 .PHONY: api
 api: ## Run the FastAPI API on :8000
-	$(PYTHON) -m uvicorn apps.api.main:app --reload --host 0.0.0.0 --port 8000
+	$(PYTHON) -m uvicorn apps.api.main:create_app --factory --reload --host 0.0.0.0 --port 8000
 
 .PHONY: worker
 worker: ## Run the async review worker

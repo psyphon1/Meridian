@@ -628,6 +628,13 @@ Leftovers to clean up: git worktrees under `/tmp/wt/pr1`–`pr6`, helper files i
 
 ---
 
+## Entry 25 — 2026-10-12: PR #5 review fixes in the api worktree
+
+- `/v1/ready` now returns 503 `{"status":"not_ready","failed":[...]}` on DB/Redis failure (logged by exception type only).
+- Webhook route hardened: `webhook.delivery_id_missing` (400), `webhook.payload_too_large` (413, 25 MB cap, streamed), non-object/non-string-action/missing-object payloads → `webhook.payload_invalid` (400), signature-verifier exceptions → 401, last-resort 500 logs exception type + delivery_id only; OTel spans `webhook.receive` / `webhook.verify`.
+- `make dev` / `make api` use `uvicorn apps.api.main:create_app --factory`.
+- Spec deviation (documented, unchanged): the route owns the transaction (`async with session.begin()`) instead of the service (spec §4.1).
+
 ## Entry 24 — 2026-10-12: PR #4 review fixes (orchestration + GitHub adapter)
 
 **Performed by:** Kiro (agent) with Chinmay Duse (psyphon1)
