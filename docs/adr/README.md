@@ -20,3 +20,4 @@ ADRs capture each architecturally significant decision and its rationale. We use
 | [ADR-004](adr-004-evidence-gate.md) | Schema-enforced evidence gate for high-severity findings | Accepted |
 | [ADR-005](adr-005-human-escalation.md) | Human escalation for high-impact decisions | Accepted |
 | [ADR-006](adr-006-phase1-github-app-webhook-ingestion.md) | Phase 1 — GitHub App + webhook ingestion layer (outbox, priority streams, schema, adapter, worker, error envelope, trace propagation) | Accepted |
+| [ADR-007](adr-007-remove-ci-and-dependabot.md) | Remove GitHub Actions CI and Dependabot (local checks only) | Accepted |

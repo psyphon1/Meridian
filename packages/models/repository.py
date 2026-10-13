@@ -2,7 +2,8 @@
 
 from datetime import datetime
 
-from sqlalchemy import BigInteger, Boolean, ForeignKey, Integer, String, Text
+from pgvector.sqlalchemy import Vector
+from sqlalchemy import BigInteger, Boolean, DateTime, ForeignKey, Index, Integer, String, Text
 from sqlalchemy.orm import Mapped, mapped_column
 
 from packages.models.base import Base, CreatedAtMixin, TimestampMixin
@@ -12,6 +13,7 @@ class Repository(Base, TimestampMixin):
     """A repository accessible via an installation."""
 
     __tablename__ = "repositories"
+    __table_args__ = (Index("ix_repositories_installation", "installation_id"),)
 
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
     installation_id: Mapped[int] = mapped_column(
@@ -29,6 +31,7 @@ class Commit(Base, CreatedAtMixin):
     """A commit on a repository."""
 
     __tablename__ = "commits"
+    __table_args__ = (Index("ix_commits_repo_sha", "repository_id", "sha", unique=True),)
 
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
     repository_id: Mapped[int] = mapped_column(
@@ -37,13 +40,14 @@ class Commit(Base, CreatedAtMixin):
     sha: Mapped[str] = mapped_column(String(40), nullable=False)
     message: Mapped[str | None] = mapped_column(Text, nullable=True)
     author: Mapped[str | None] = mapped_column(String(255), nullable=True)
-    authored_at: Mapped[datetime | None] = mapped_column(nullable=True)
+    authored_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
 
 class File(Base, TimestampMixin):
     """A tracked file in a repository (code intelligence index)."""
 
     __tablename__ = "files"
+    __table_args__ = (Index("ix_files_repo_path", "repository_id", "path", unique=True),)
 
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
     repository_id: Mapped[int] = mapped_column(
@@ -58,11 +62,12 @@ class File(Base, TimestampMixin):
 class CodeSymbol(Base, CreatedAtMixin):
     """A symbol extracted from a file (code intelligence index).
 
-    embedding: pgvector(1536) — declared in the Alembic migration (Task 10)
-    as ARRAY(Float) placeholder; replaced with vector(1536) in Phase 2.
+    embedding: pgvector ``vector(1536)`` (ADR-002, spec §5.1); nullable until the
+    embedding pipeline lands (Phase 2). The HNSW index is also Phase 2.
     """
 
     __tablename__ = "code_symbols"
+    __table_args__ = (Index("ix_code_symbols_file", "file_id"),)
 
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
     file_id: Mapped[int] = mapped_column(BigInteger, ForeignKey("files.id"), nullable=False)
@@ -71,3 +76,4 @@ class CodeSymbol(Base, CreatedAtMixin):
     start_line: Mapped[int] = mapped_column(Integer, nullable=False)
     end_line: Mapped[int] = mapped_column(Integer, nullable=False)
     signature: Mapped[str | None] = mapped_column(Text, nullable=True)
+    embedding: Mapped[list[float] | None] = mapped_column(Vector(1536), nullable=True)

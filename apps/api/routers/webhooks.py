@@ -155,7 +155,9 @@ async def _handle(request: Request, session: AsyncSession, raw_delivery: str) ->
 
     # 4. Verify HMAC → fail (including malformed/non-ASCII header) → 401
     with tracer.start_as_current_span("webhook.verify"):
-        valid = _signature_is_valid(raw_body, signature, settings.github_webhook_secret)
+        valid = _signature_is_valid(
+            raw_body, signature, settings.github_webhook_secret.get_secret_value()
+        )
     if not valid:
         log.warning("webhook.signature_invalid", delivery_id=delivery_id)
         return error_response(

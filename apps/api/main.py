@@ -24,7 +24,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     app.state.redis = create_redis_client(settings)
     app.state.github = GitHubClient(
         token_cache=None,
-        private_key=settings.github_private_key,
+        private_key=settings.github_private_key.get_secret_value(),
         app_id=settings.github_app_id,
     )
     yield

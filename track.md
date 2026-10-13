@@ -264,7 +264,7 @@
 
 ---
 
-## Entry 9 — 2026-09-13: Phase 1 design spec enhanced (code quality grilling + brainstorming)
+## Entry 21 — 2026-09-13: Phase 1 design spec enhanced (code quality grilling + brainstorming)
 
 **Performed by:** Cline (agent) with Chinmay Duse (psyphon1)
 
@@ -511,21 +511,149 @@
 - [ ] After merges: run `docker compose up -d` + alembic upgrade + integration/e2e suites against live services.
 - [ ] Phase 2 backlog: risk-tier classification, installation-token API wiring, pgvector, review agent pipeline.
 
-## Entry 17 — 2026-10-12: PR #5 review fixes in the api worktree
+---
+
+## Entry 17 — 2026-09-13: Stacked PRs #4–#6 opened + PR template restructured to What/Why/When/How
+
+**Performed by:** Cline (agent) with Chinmay Duse (psyphon1)
+
+### Done
+
+1. **Opened the three remaining stacked PRs** (citation-based template checklists filled in each body):
+   - PR **#4** — `feature/github_orch` → `feature/obs_sec`: orchestration Tasks 20–22.
+   - PR **#5** — `feature/api` → `feature/github_orch`: API Tasks 23–25.
+   - PR **#6** — `feature/worker` → `feature/api`: worker + e2e Tasks 26–29.
+2. **Restructured `.github/pull_request_template.md`**: replaced the single `Summary` section with explicit **What / Why / When / How** sections plus new **Impact** and **Rollback** sections; the mandatory checklist (per `docs/DEVELOPER_STANDARDS.md`) is unchanged.
+3. **Opened PR #7** — `feat/phase1-github-app-webhook-ingestion` → `main`: carries this template change + this track.md entry (the phase-1 plan branch previously had no PR; its earlier track.md entries went straight to `main`).
+
+### Next
+
+- [ ] Review/merge order: #1 → #2 → #3 → #4 → #5 → #6 → #7.
+- [ ] After merges: `docker compose up -d` + `alembic upgrade head` + re-run integration/e2e suites against live services; tag `v0.1.0`.
+
+## Entry 18 — 2026-10-13: Parallel review of all open PRs, baseline CI fix (#25), review-fix work on stack #1–#6 (in progress)
+
+**Performed by:** Kiro (agent) with Chinmay Duse (psyphon1) · session of 2026-10-12 → 2026-10-13
+
+### Done
+
+1. **Read the full doc set** (AGENTS.md, CODE/DEVELOPER/AGENT standards, PROJECT_STRUCTURE, SECURITY, ADR-006, Phase 1 spec) and inspected all 21 open PRs (#1–#9, #12–#16, #18–#24) plus their CI logs.
+2. **Reviewed all 21 PRs with 10 parallel read-only reviewer agents.** Verdicts:
+   - Changes requested: #1–#6 (stack), #7, #8, #9, #15, #16, #24.
+   - Approved (change itself): #12, #13, #14, #18, #19, #20, #21, #22, #23.
+3. **Posted the reviews on GitHub.** Own PRs (#1–#8) as comment reviews (GitHub does not allow requesting changes on one's own PR); Dependabot PRs as approve or request-changes. Note: PRs #1–#8 received the review body twice because the posting loop was run twice; the duplicates are harmless but can be ignored.
+4. **Found that `main` CI was red on every PR** and blocked all merges (DEVELOPER_STANDARDS §5: no merge with failing CI). Root causes were read from the job logs:
+   - Frontend: `Multiple versions of pnpm specified` (`ci.yml` `version: 9` vs `packageManager`); then `Dependencies lock file is not found` because `cache: pnpm` is set without a `pnpm-lock.yaml`.
+   - Python lint: 5 Ruff errors in `scripts/pre_commit/no_env_files.py`; `ruff format --check` also reformatted 3 design docs.
+   - Python tests: 80% coverage gate failing at 0% on a tree with no source.
+   - Secret scan / CodeQL: 403 from missing `pull-requests: read` and `actions: read` token permissions.
+5. **Merged PR #25 `ci: fix baseline CI failures`** (squash, commit `a8fbd22`; all 9 checks green): removed the explicit pnpm version and the pnpm cache, fixed the Ruff errors, excluded `*.md` from `ruff format`, applied the coverage gate only when Python source exists, added the token permissions, and removed the obsolete `types-redis` dependency (its stubs caused `Missing type arguments for generic type "Redis"` under `mypy --strict`).
+6. **Dependabot handling:**
+   - Commented `@dependabot rebase` on #12, #13, #14, #18, #19, #20, #21, #22, #23 so they re-run CI on the fixed `main`. They are approved but **not yet merged** (waiting on green CI).
+   - Closed with a major-version/dependency ignore: #9 (TypeScript 7 outside typescript-eslint's peer range), #24 (lint-staged 17 needs Node ≥ 22.22.1; repo supports Node 20), #16 (`types-redis` obsolete, removed in #25).
+   - #15 (langgraph 1.x) left open on hold until Phase 2 uses LangGraph.
+
+### In progress (state as recorded at 2026-10-13 00:15 IST; not verified as complete)
+
+Fix agents were started for the stacked PRs and were **interrupted by the user** mid-run. Before the interruption they had already pushed (no force-push) to these branches, each after merging `origin/main`:
+
+| PR | Branch | Pushed so far |
+|---|---|---|
+| #1 | `feature/config` | `SecretStr` for GitHub secrets, `Literal` `app_env`, tests, redundant `cast` removed, CI mypy target fix |
+| #2 | `feature/models` | Local worktree only (`/tmp/wt/pr2`, uncommitted edits to migration, spec, `env.py`); **nothing pushed beyond the original tip** |
+| #3 | `feature/obs_sec` | Byte-based HMAC compare, advisory-lock hash computed in SQL (ADR-006), `extract_context`/`get_tracer`, log redaction and correlation |
+| #4 | `feature/github_orch` | Ack-after-commit consumer handling real `XREADGROUP` shapes, event-type routing with typed payload errors, authenticated typed GitHub client |
+| #5 | `feature/api` | 503 readiness, hardened webhook route, size cap, spans, `make dev` uses the app factory |
+| #6 | `feature/worker` | Graceful shutdown, ack-after-commit, per-row outbox isolation, traced jobs, pending-safe janitor primitives; merged `feature/api` |
+
+Not yet verified by me: CI status of these branches, the completeness of each fix list from the posted reviews, and PR description corrections (`gh pr edit`). The fix agents also added their own `docs(track)` commits on their branches, so `track.md` will conflict when the stack merges and needs to be reconciled with Entry 17 (PR #7).
+
+Leftovers to clean up: git worktrees under `/tmp/wt/pr1`–`pr6`, helper files in `/tmp/wt`, and throwaway `redis-server` processes on ports 6390 and 6391.
+
+### Next
+
+- [ ] Verify each stack branch (#1–#6): remaining review findings, local ruff/mypy/pytest, CI green, PR descriptions corrected. PR #2 still needs its migration, `head_sha`, partial-index, pgvector, timezone and fixture-password fixes pushed.
+- [ ] Merge the stack in order #1 → #6 with **merge commits** (not squash) so the stacked branches retarget cleanly; resolve `track.md` conflicts.
+- [ ] Merge the approved Dependabot PRs (#12, #13, #14, #18–#23) one at a time once their rebased CI is green.
+- [ ] #7: correct PR body (Type box, unverifiable test-count claim) and merge CI-green; then #8 shrinks to its own `.gitignore` commit.
+- [ ] Open question for the owner: PR #6 `on_job` only marks `processed=true`; spec §8 upserts/`review_run`/audit event are deferred per the implementation plan. Needs explicit sign-off or a spec amendment.
+- [ ] Remove worktrees and throwaway Redis processes listed above.
+
+---
+
+## Entry 19 — 2026-10-13: Remove CI and Dependabot (ADR-007)
+
+**Performed by:** Kiro (agent) with Chinmay Duse (psyphon1)
+
+### Done
+
+1. Added `docs/adr/adr-007-remove-ci-and-dependabot.md` (Accepted) and indexed it in `docs/adr/README.md`. It deviates from `docs/design/*` (TRD §29, SDD, Architecture list GitHub Actions); those files are left unchanged as the historical record.
+2. Deleted `.github/workflows/ci.yml` and `.github/dependabot.yml`.
+3. Removed CI/Dependabot claims from `README.md`, `docs/PROJECT_STRUCTURE.md`, `docs/BEGINNERS_GUIDE.md`, `docs/TRD.md`, `docs/SECURITY.md`, `docs/CODE_STANDARDS.md`, `docs/DEVELOPER_STANDARDS.md`, `docs/DEPLOYMENT.md`.
+4. Remote cleanup via `gh` (see the commit and the session record): close open Dependabot PRs, delete `dependabot/*` branches, disable Dependabot alerts and security updates.
+
+### Impact
+
+- Entry 18 items that depend on green CI (merge gate, `@dependabot rebase`, Dependabot PR merges) no longer apply.
+- Local checks (`make lint typecheck test`) are the only gate.
+
+---
+
+## Entry 20 — 2026-10-12: PR #1 (`feature/config`) review fixes
+
+**Performed by:** Kiro (agent) with Chinmay Duse (psyphon1)
+
+### Done
+
+1. Merged `origin/main` (CI baseline fix #25: `types-redis` removed) into `feature/config`; `mypy packages` is strict-clean.
+2. `packages/config/redis.py`: replaced `cast("Redis", ...)` with an annotated assignment (`client: Redis = Redis.from_url(...)`) — `redis-py` 5.x `from_url` returns `Any`, so removing the cast outright triggers `no-any-return`.
+3. `packages/config/settings.py`: `github_private_key` and `github_webhook_secret` are now `SecretStr` (read via `.get_secret_value()`); `app_env` is `Literal["development","staging","production","test"]`. Spec §10.1 and `.env.example` updated.
+4. Tests: `repr()`/`str()` of `Settings` hide secrets; `app_env` valid/invalid values; `get_settings` caching + `cache_clear`; `get_session` yield/close (incl. exception path); `create_db_engine` echo flag.
+5. Local results: ruff check ✅, ruff format --check ✅, `mypy packages` ✅, pytest 26 passed, coverage 100% (gate 80%).
+
+## Entry 22 — 2026-10-12: PR #3 review fixes (`feature/obs_sec`)
+
+---
+
+## Entry 23 — 2026-10-12: PR #3 review fixes (`feature/obs_sec`)
+
+1. `packages/security/hmac_verify.py`: compare as bytes (`.encode()` both sides) so non-ASCII/lone-surrogate headers return `False` instead of raising `TypeError`; +6 tests (non-ASCII, surrogate, empty header, empty body ×2, wrong prefix).
+2. `packages/security/advisory_lock.py`: follows ADR-006 (Idempotency) — `compute_lock_key(...) -> str` builds `"{repo_id}:{pr_number}:{head_sha}"`; `acquire_advisory_lock(session, key: str)` executes `SELECT pg_advisory_xact_lock(hashtextextended(:key, 0))`. Removed false "SHA-256 … (ADR-006)" docstring citation. Golden-value + mocked-`AsyncSession` SQL/param tests.
+3. `packages/observability/tracing.py`: added `extract_context(carrier) -> Context` (`opentelemetry.propagate.extract`) and `get_tracer`; `extract_traceparent` kept. In-memory-exporter test: inject → extract → child span shares trace id and parent span id.
+4. `packages/observability/logging.py`: redaction processor (recursive), `trace_id`/`span_id` from current OTel span, `delivery_id` via structlog contextvars (`bind_delivery_id`/`clear_delivery_id`), `format_exc_info` (production JSON), `normalize_log_level` (ValueError on unknown; same int used for stdlib + structlog), return type `FilteringBoundLogger` (no `type: ignore`), `logger=<name>` actually bound.
+5. Tautological tests in `test_logging.py`/`test_tracing.py` replaced with behavioral assertions.
+6. CI: `mypy apps packages services` failed because `apps/` does not exist on this branch; `.github/workflows/ci.yml` now type-checks only existing source dirs (`ci: run mypy only on source directories that exist`).
+7. Results: ruff check ✅, ruff format --check ✅, mypy `packages` ✅ (18 files), `pytest --cov` → 75 passed, 1 skipped (integration needs Postgres); `tests/unit` → 71 passed.
+
+
+---
+
+## Entry 25 — 2026-10-12: PR #5 review fixes in the api worktree
 
 - `/v1/ready` now returns 503 `{"status":"not_ready","failed":[...]}` on DB/Redis failure (logged by exception type only).
 - Webhook route hardened: `webhook.delivery_id_missing` (400), `webhook.payload_too_large` (413, 25 MB cap, streamed), non-object/non-string-action/missing-object payloads → `webhook.payload_invalid` (400), signature-verifier exceptions → 401, last-resort 500 logs exception type + delivery_id only; OTel spans `webhook.receive` / `webhook.verify`.
 - `make dev` / `make api` use `uvicorn apps.api.main:create_app --factory`.
 - Spec deviation (documented, unchanged): the route owns the transaction (`async with session.begin()`) instead of the service (spec §4.1).
 
+## Entry 24 — 2026-10-12: PR #4 review fixes (orchestration + GitHub adapter)
 
 ---
 
-## Entry 17 — 2026-10-12: PR #6 review fixes (worker shutdown, ack, janitor, outbox isolation)
+## Entry 26 — 2026-10-12: PR #6 review fixes (worker shutdown, ack, janitor, outbox isolation)
 
 **Performed by:** Kiro (agent) with Chinmay Duse (psyphon1)
 
 ### Done
+
+1. `packages/orchestration/consumer.py`: handles real `XREADGROUP` replies (RESP2 list / RESP3 dict, str or bytes — verified against Redis 8.10.2 with redis-py 5.3.1); `XACK` only after `on_job` succeeds (ADR-006 D6); failed/malformed entries stay pending for the janitor; only `BUSYGROUP` is swallowed; non-blocking priority pass then one blocking read across all lanes; `running()` for graceful stop.
+2. `packages/orchestration/ingestion.py` + `errors.py`: per-event payload routing, `WebhookPayloadError` (`webhook.payload_invalid`), layer-3 `(PR, head SHA)` RECEIVED-run check, OTel span + structured logs, single JSON parse.
+3. `packages/github/`: authenticated client (installation token / App JWT), real token-mint fetcher, 401 refresh-and-retry once, 403 split (`RateLimitError` vs `AuthorizationError`), Retry-After seconds/HTTP-date, backoff + jitter (max 3), typed models (`types.py`), `token_cache` with Protocol-injected store and equal L1/L2 expiry.
+4. Fixed a latent bug: `generate_app_jwt` passed an int `iss`, which PyJWT >= 2.10 rejects (`TypeError`); now `str(app_id)`.
+
+### Lessons / gotchas
+
+- Mocked-`jwt.encode` tests hid the `iss` bug; added an unmocked RSA round-trip test.
+- structlog's `event` kwarg collides with the log message positional; use `webhook_event`.
 
 1. **Graceful shutdown** (`apps/worker/main.py`, new `apps/worker/runtime.py`): `loop.add_signal_handler` for SIGTERM/SIGINT sets a shared `asyncio.Event`; consumer, outbox publisher and janitor loops wait with `wait_for(stop.wait(), timeout)` instead of bare sleeps; drain with a 30s timeout then cancel; exit code 0 (1 if a loop crashed). `global _running` removed.
 2. **XACK after commit** (`apps/worker/consumer.py`): the worker now owns its read loop (`packages.orchestration.consumer.process_message` does not expose entry ids, so it cannot ack). It acks only after `process_job` committed; failures stay pending, are retried via a backlog pass over the consumer's own PEL, and are dead-lettered after 3 deliveries. XACK is idempotent, so a future ack inside `process_message` is harmless.

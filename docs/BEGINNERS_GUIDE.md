@@ -186,7 +186,7 @@ meridian/
 ├── evals/         # Evaluation datasets and regression tests
 ├── tests/         # Test suites (unit, integration, security, e2e)
 ├── scripts/       # Development and deployment scripts
-└── .github/       # CI workflows, issue templates, CODEOWNERS
+└── .github/       # issue templates, PR template, CODEOWNERS
 ```
 
 **The key rule:** the structure makes the architecture obvious. Business logic never lives in routes. LLM calls only happen through the model gateway. GitHub API calls only happen through the GitHub adapter. No finding bypasses the evidence pipeline.
@@ -214,7 +214,6 @@ Meridian is currently in the **design phase → build starting** transition. Her
 - ✅ Complete documentation set (PRD, SDD, TRD, Architecture, Security, etc.)
 - ✅ Project structure scaffolded (all 54+ directories)
 - ✅ Build config files filled (`pyproject.toml`, `package.json`, `docker-compose.yml`, `Makefile`)
-- ✅ CI pipeline (lint → typecheck → test → secret scan → SAST → SBOM)
 - ✅ GitHub hygiene (CODEOWNERS, issue templates, PR template)
 - ✅ Bootstrap script + smoke tests (passing ✅)
 - ✅ All docs rebranded and version-unified to 2.1
