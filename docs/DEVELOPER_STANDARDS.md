@@ -18,7 +18,7 @@ A change is **not done** until all of these hold:
 
 - [ ] Acceptance criteria are met and demonstrated by tests.
 - [ ] Behavior changes include tests (unit + integration per code layer); production bugs get regression tests.
-- [ ] All lint + typecheck + tests pass in CI (Ruff, mypy, ESLint/tsc, pytest).
+- [ ] All lint + typecheck + tests pass locally (Ruff, mypy, ESLint/tsc, pytest).
 - [ ] **Observability is in place** — traces, metrics, and structured logs exist for the new behavior (see `docs/OBSERVABILITY.md`). A feature without traces/metrics is incomplete.
 - [ ] Security-sensitive paths pass the ASVS checklist (`docs/SECURITY.md`) and contain no credentials in source/logs/traces.
 - [ ] Docs updated if the change alters contracts, env vars, or architecture (this is why `track.md` and design docs stay current).
@@ -48,7 +48,7 @@ See `docs/CODE_STANDARDS.md` §6 and `make test*` targets.
 **Unit and integration tests must pass before any commit reaches the remote.** This is enforced by:
 - **Pre-commit hook** (`.pre-commit-config.yaml`): runs unit tests (`pytest tests/unit -q`) + gitleaks + ruff + mypy.
 - **Pre-push hook** (`.husky/pre-push` or `pre-commit` pre-push stage): runs integration tests (`pytest tests/integration -q`) + e2e smoke if applicable.
-- **CI enforcement**: the same test matrix runs again in GitHub Actions; no merge with failing CI.
+- **No CI** (ADR-007): run the full test matrix locally before merge; report real results in the PR.
 
 No commit may bypass these hooks via `--no-verify` without explicit written justification in the commit message (e.g., `[skip-hooks] WIP: ...`). Such commits must be amended before PR.
 
@@ -56,7 +56,7 @@ No commit may bypass these hooks via `--no-verify` without explicit written just
 
 - No credentials in source, images, config committed to the repo, or logs — **ever** (12-factor + `docs/SECURITY.md`).
 - No environment variables, `.env` files, or secrets of any kind committed to the repository — **ever**. This includes "example" files that contain real-looking values, test fixtures with hardcoded tokens, or documentation snippets with live credentials.
-- No merging with failing CI or without `CODEOWNERS` approval.
+- No merging with failing local checks or without `CODEOWNERS` approval.
 - No force-pushing to `main`; no rewriting shared history.
 - No bypassing the evidence gate for BLOCKING/HIGH findings (ADR-004) — in product code or review agents.
 

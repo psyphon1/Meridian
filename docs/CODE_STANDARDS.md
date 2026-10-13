@@ -9,7 +9,7 @@
 
 ### 1.1 Hard rules (non-negotiable)
 
-1. **Type hints everywhere.** All public functions, class methods, and module-level constants are fully annotated. `mypy` in **strict mode** (`pyproject.toml`) runs in CI; no new `# type: ignore` without a comment explaining why.
+1. **Type hints everywhere.** All public functions, class methods, and module-level constants are fully annotated. `mypy` in **strict mode** (`pyproject.toml`) runs locally (`make typecheck`); no new `# type: ignore` without a comment explaining why.
 2. **No bare `except:`** — ever. Catch specific exception types; the narrowest type that makes semantic sense.
 3. **PEP 8 formatting via Ruff.** Line length 100. Import order enforced (`I` rule): stdlib → third-party → first-party, blank-line separated. Ruff runs as both linter and formatter.
 4. **Explicit exception hierarchy.** Custom exceptions live in a package-level `errors.py` and subclass a shared base (`MeridianError`). Never raise bare `Exception` or `ValueError` for domain conditions — define purpose-built types.
@@ -57,9 +57,9 @@
 - `CODEOWNERS` enforcement — every path resolves to a maintainer before merge.
 - One logical change per PR (see `docs/DEVELOPER_STANDARDS.md` for size limits).
 
-## 5. Security tooling in CI
+## 5. Security tooling
 
-Dependency scanning · secret scanning (gitleaks) · SAST (CodeQL + Semgrep) · SBOM generation (anchore/syft). All wired in `.github/workflows/ci.yml`. No credentials in source, images, or logs — ever.
+Dependency scanning · secret scanning (gitleaks) · SAST (CodeQL + Semgrep) · SBOM generation (anchore/syft). Not automated: the GitHub Actions workflow was removed (ADR-007); run these locally before release. No credentials in source, images, or logs — ever.
 
 ## 6. Testing rule
 

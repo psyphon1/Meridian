@@ -3,7 +3,6 @@
 > **Your autonomous first-pass senior engineer for every GitHub pull request.**
 
 <p align="center">
-  <a href="https://github.com/psyphon1/Meridian/actions/workflows/ci.yml"><img alt="CI" src="https://github.com/psyphon1/Meridian/actions/workflows/ci.yml/badge.svg"></a>
   <a href="LICENSE"><img alt="License: MIT" src="https://img.shields.io/badge/license-MIT-blue.svg"></a>
   <img alt="Python 3.12+" src="https://img.shields.io/badge/python-3.12%2B-3776AB?logo=python&logoColor=white">
   <img alt="Node 20+" src="https://img.shields.io/badge/node-20%2B-339933?logo=nodedotjs&logoColor=white">
@@ -80,7 +79,7 @@ Agents produce **hypotheses**, never final comments. The adjudicator and determi
 | Execution | Firecracker / gVisor | Per-tenant isolated, pre-warmed, deny-all egress |
 | Secrets | AWS/GCP KMS or Vault | Envelope-encrypted user keys |
 | Observability | OpenTelemetry + Langfuse + structlog | Golden signals + LLM tracing (redacted) |
-| Infra | Docker · Kubernetes · Terraform · GitHub Actions | Reproducible, digest-pinned deploys |
+| Infra | Docker · Kubernetes · Terraform | Reproducible, digest-pinned deploys |
 
 Full rationale for every choice — with syntax examples, system-design reasoning, and scaling discussion — lives in [`docs/LEARNING_GUIDE.md`](docs/LEARNING_GUIDE.md).
 
@@ -102,7 +101,7 @@ meridian/
 ├── evals/           # datasets, cases, graders, regression, reports
 ├── tests/           # unit, integration, security, e2e, fixtures
 ├── scripts/         # bootstrap, indexing, evaluation, migrations, development
-└── .github/         # workflows (CI), ISSUE_TEMPLATE, PR template, dependabot, CODEOWNERS
+└── .github/         # ISSUE_TEMPLATE, PR template, CODEOWNERS
 ```
 
 Guiding rule: the structure must make the architecture obvious. If locating the API, workflow, agents, retrieval, or verification requires reading unrelated code, the structure is wrong.
@@ -185,7 +184,7 @@ Architecture changes require an ADR before implementation ([`docs/adr/`](docs/ad
 
 🚧 **Pre-Alpha — design complete, build starting.** Full project history in [`track.md`](track.md).
 
-**Done:** complete documentation set (PRD/SDD/TRD/architecture/security/compliance/observability/deployment) · modular monorepo scaffold (54+ directories) · build config filled (`pyproject.toml`, `package.json`, `docker-compose.yml`, `Makefile`) · CI pipeline (lint → typecheck → test → secret scan → SAST → SBOM) · GitHub hygiene (CODEOWNERS, issue/PR templates, Dependabot) · bootstrap script + smoke tests (passing) · 5 ADRs · beginner + learning guides.
+**Done:** complete documentation set (PRD/SDD/TRD/architecture/security/compliance/observability/deployment) · modular monorepo scaffold (54+ directories) · build config filled (`pyproject.toml`, `package.json`, `docker-compose.yml`, `Makefile`) · GitHub hygiene (CODEOWNERS, issue/PR templates; CI and Dependabot removed, see [ADR-007](docs/adr/adr-007-remove-ci-and-dependabot.md)) · bootstrap script + smoke tests (passing) · 5 ADRs · beginner + learning guides.
 
 **Build order** (from [`docs/TRD.md`](docs/TRD.md)):
 

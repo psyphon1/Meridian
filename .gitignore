@@ -40,3 +40,7 @@ kubeconfig
 tmp/
 .DS_Store
 Thumbs.db
+
+# --- Git worktrees (local multi-branch scaffolding; contains nested repos) ---
+worktrees/
+

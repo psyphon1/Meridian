@@ -513,7 +513,93 @@
 
 ---
 
-## Entry 17 — 2026-10-12: PR #1 (`feature/config`) review fixes
+## Entry 17 — 2026-09-13: Stacked PRs #4–#6 opened + PR template restructured to What/Why/When/How
+
+**Performed by:** Cline (agent) with Chinmay Duse (psyphon1)
+
+### Done
+
+1. **Opened the three remaining stacked PRs** (citation-based template checklists filled in each body):
+   - PR **#4** — `feature/github_orch` → `feature/obs_sec`: orchestration Tasks 20–22.
+   - PR **#5** — `feature/api` → `feature/github_orch`: API Tasks 23–25.
+   - PR **#6** — `feature/worker` → `feature/api`: worker + e2e Tasks 26–29.
+2. **Restructured `.github/pull_request_template.md`**: replaced the single `Summary` section with explicit **What / Why / When / How** sections plus new **Impact** and **Rollback** sections; the mandatory checklist (per `docs/DEVELOPER_STANDARDS.md`) is unchanged.
+3. **Opened PR #7** — `feat/phase1-github-app-webhook-ingestion` → `main`: carries this template change + this track.md entry (the phase-1 plan branch previously had no PR; its earlier track.md entries went straight to `main`).
+
+### Next
+
+- [ ] Review/merge order: #1 → #2 → #3 → #4 → #5 → #6 → #7.
+- [ ] After merges: `docker compose up -d` + `alembic upgrade head` + re-run integration/e2e suites against live services; tag `v0.1.0`.
+
+## Entry 18 — 2026-10-13: Parallel review of all open PRs, baseline CI fix (#25), review-fix work on stack #1–#6 (in progress)
+
+**Performed by:** Kiro (agent) with Chinmay Duse (psyphon1) · session of 2026-10-12 → 2026-10-13
+
+### Done
+
+1. **Read the full doc set** (AGENTS.md, CODE/DEVELOPER/AGENT standards, PROJECT_STRUCTURE, SECURITY, ADR-006, Phase 1 spec) and inspected all 21 open PRs (#1–#9, #12–#16, #18–#24) plus their CI logs.
+2. **Reviewed all 21 PRs with 10 parallel read-only reviewer agents.** Verdicts:
+   - Changes requested: #1–#6 (stack), #7, #8, #9, #15, #16, #24.
+   - Approved (change itself): #12, #13, #14, #18, #19, #20, #21, #22, #23.
+3. **Posted the reviews on GitHub.** Own PRs (#1–#8) as comment reviews (GitHub does not allow requesting changes on one's own PR); Dependabot PRs as approve or request-changes. Note: PRs #1–#8 received the review body twice because the posting loop was run twice; the duplicates are harmless but can be ignored.
+4. **Found that `main` CI was red on every PR** and blocked all merges (DEVELOPER_STANDARDS §5: no merge with failing CI). Root causes were read from the job logs:
+   - Frontend: `Multiple versions of pnpm specified` (`ci.yml` `version: 9` vs `packageManager`); then `Dependencies lock file is not found` because `cache: pnpm` is set without a `pnpm-lock.yaml`.
+   - Python lint: 5 Ruff errors in `scripts/pre_commit/no_env_files.py`; `ruff format --check` also reformatted 3 design docs.
+   - Python tests: 80% coverage gate failing at 0% on a tree with no source.
+   - Secret scan / CodeQL: 403 from missing `pull-requests: read` and `actions: read` token permissions.
+5. **Merged PR #25 `ci: fix baseline CI failures`** (squash, commit `a8fbd22`; all 9 checks green): removed the explicit pnpm version and the pnpm cache, fixed the Ruff errors, excluded `*.md` from `ruff format`, applied the coverage gate only when Python source exists, added the token permissions, and removed the obsolete `types-redis` dependency (its stubs caused `Missing type arguments for generic type "Redis"` under `mypy --strict`).
+6. **Dependabot handling:**
+   - Commented `@dependabot rebase` on #12, #13, #14, #18, #19, #20, #21, #22, #23 so they re-run CI on the fixed `main`. They are approved but **not yet merged** (waiting on green CI).
+   - Closed with a major-version/dependency ignore: #9 (TypeScript 7 outside typescript-eslint's peer range), #24 (lint-staged 17 needs Node ≥ 22.22.1; repo supports Node 20), #16 (`types-redis` obsolete, removed in #25).
+   - #15 (langgraph 1.x) left open on hold until Phase 2 uses LangGraph.
+
+### In progress (state as recorded at 2026-10-13 00:15 IST; not verified as complete)
+
+Fix agents were started for the stacked PRs and were **interrupted by the user** mid-run. Before the interruption they had already pushed (no force-push) to these branches, each after merging `origin/main`:
+
+| PR | Branch | Pushed so far |
+|---|---|---|
+| #1 | `feature/config` | `SecretStr` for GitHub secrets, `Literal` `app_env`, tests, redundant `cast` removed, CI mypy target fix |
+| #2 | `feature/models` | Local worktree only (`/tmp/wt/pr2`, uncommitted edits to migration, spec, `env.py`); **nothing pushed beyond the original tip** |
+| #3 | `feature/obs_sec` | Byte-based HMAC compare, advisory-lock hash computed in SQL (ADR-006), `extract_context`/`get_tracer`, log redaction and correlation |
+| #4 | `feature/github_orch` | Ack-after-commit consumer handling real `XREADGROUP` shapes, event-type routing with typed payload errors, authenticated typed GitHub client |
+| #5 | `feature/api` | 503 readiness, hardened webhook route, size cap, spans, `make dev` uses the app factory |
+| #6 | `feature/worker` | Graceful shutdown, ack-after-commit, per-row outbox isolation, traced jobs, pending-safe janitor primitives; merged `feature/api` |
+
+Not yet verified by me: CI status of these branches, the completeness of each fix list from the posted reviews, and PR description corrections (`gh pr edit`). The fix agents also added their own `docs(track)` commits on their branches, so `track.md` will conflict when the stack merges and needs to be reconciled with Entry 17 (PR #7).
+
+Leftovers to clean up: git worktrees under `/tmp/wt/pr1`–`pr6`, helper files in `/tmp/wt`, and throwaway `redis-server` processes on ports 6390 and 6391.
+
+### Next
+
+- [ ] Verify each stack branch (#1–#6): remaining review findings, local ruff/mypy/pytest, CI green, PR descriptions corrected. PR #2 still needs its migration, `head_sha`, partial-index, pgvector, timezone and fixture-password fixes pushed.
+- [ ] Merge the stack in order #1 → #6 with **merge commits** (not squash) so the stacked branches retarget cleanly; resolve `track.md` conflicts.
+- [ ] Merge the approved Dependabot PRs (#12, #13, #14, #18–#23) one at a time once their rebased CI is green.
+- [ ] #7: correct PR body (Type box, unverifiable test-count claim) and merge CI-green; then #8 shrinks to its own `.gitignore` commit.
+- [ ] Open question for the owner: PR #6 `on_job` only marks `processed=true`; spec §8 upserts/`review_run`/audit event are deferred per the implementation plan. Needs explicit sign-off or a spec amendment.
+- [ ] Remove worktrees and throwaway Redis processes listed above.
+
+---
+
+## Entry 19 — 2026-10-13: Remove CI and Dependabot (ADR-007)
+
+**Performed by:** Kiro (agent) with Chinmay Duse (psyphon1)
+
+### Done
+
+1. Added `docs/adr/adr-007-remove-ci-and-dependabot.md` (Accepted) and indexed it in `docs/adr/README.md`. It deviates from `docs/design/*` (TRD §29, SDD, Architecture list GitHub Actions); those files are left unchanged as the historical record.
+2. Deleted `.github/workflows/ci.yml` and `.github/dependabot.yml`.
+3. Removed CI/Dependabot claims from `README.md`, `docs/PROJECT_STRUCTURE.md`, `docs/BEGINNERS_GUIDE.md`, `docs/TRD.md`, `docs/SECURITY.md`, `docs/CODE_STANDARDS.md`, `docs/DEVELOPER_STANDARDS.md`, `docs/DEPLOYMENT.md`.
+4. Remote cleanup via `gh` (see the commit and the session record): close open Dependabot PRs, delete `dependabot/*` branches, disable Dependabot alerts and security updates.
+
+### Impact
+
+- Entry 18 items that depend on green CI (merge gate, `@dependabot rebase`, Dependabot PR merges) no longer apply.
+- Local checks (`make lint typecheck test`) are the only gate.
+
+---
+
+## Entry 20 — 2026-10-12: PR #1 (`feature/config`) review fixes
 
 **Performed by:** Kiro (agent) with Chinmay Duse (psyphon1)
 
@@ -524,4 +610,3 @@
 3. `packages/config/settings.py`: `github_private_key` and `github_webhook_secret` are now `SecretStr` (read via `.get_secret_value()`); `app_env` is `Literal["development","staging","production","test"]`. Spec §10.1 and `.env.example` updated.
 4. Tests: `repr()`/`str()` of `Settings` hide secrets; `app_env` valid/invalid values; `get_settings` caching + `cache_clear`; `get_session` yield/close (incl. exception path); `create_db_engine` echo flag.
 5. Local results: ruff check ✅, ruff format --check ✅, `mypy packages` ✅, pytest 26 passed, coverage 100% (gate 80%).
-
