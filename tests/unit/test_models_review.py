@@ -24,6 +24,7 @@ def test_review_run_columns():
     assert cols == {
         "id",
         "pull_request_id",
+        "head_sha",
         "status",
         "risk_tier",
         "started_at",
@@ -90,3 +91,8 @@ def test_pr_unique_repo_number():
         if uc.__class__.__name__ == "UniqueConstraint"
     }
     assert ("repository_id", "github_pr_number") in unique_pairs
+
+
+def test_review_run_idempotency_index_on_pr_and_head_sha():
+    (idx,) = [i for i in ReviewRun.__table__.indexes if i.name == "ix_review_runs_pr_head_sha"]
+    assert [c.name for c in idx.columns] == ["pull_request_id", "head_sha"]
