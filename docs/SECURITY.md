@@ -45,14 +45,14 @@ Deny-all network egress by default (explicit registry allowlist only) · command
 | LLM02 | Insecure Output Handling | No LLM output executed or interpolated into shell/templates; schemas validated; findings pass the evidence gate before rendering |
 | LLM03 | Training Data Poisoning | No fine-tuning on user repos in V1; evaluation harness + regression corpus gate any future model change |
 | LLM04 | Model Denial of Service | Risk-adaptive compute, per-tenant daily token ceiling, per-job wall-clock limits, queue backpressure |
-| LLM05 | Supply Chain Vulnerabilities | Pinned deps, SBOM, Dependabot, code/secret scanning, pinned analyzer rule packs |
+| LLM05 | Supply Chain Vulnerabilities | Pinned deps, SBOM, code/secret scanning, pinned analyzer rule packs (not automated in CI; see ADR-007) |
 | LLM06 | Sensitive Information Disclosure | Tenant-isolated context assembly; no cross-tenant retrieval; redaction before any trace export |
 | LLM07 | Insecure Plugin/Tool Design | Tool allowlists, argument validation, no unrestricted shell, sandboxed execution |
 | LLM08 | Excessive Agency | Agents emit hypotheses only; the adjudicator + deterministic verifiers decide; no agent can publish or merge autonomously |
 | LLM09 | Overreliance | Evidence gate, confidence filtering, human escalation, citations mandatory on BLOCKING/HIGH |
 | LLM10 | Model Theft | N/A for BYOK inference (user's key, provider-hosted model); keys envelope-encrypted, in-memory only |
 
-- **NIST SSDF** — secure development practices in CI.
+- **NIST SSDF** — secure development practices (run locally; no CI, see ADR-007).
 - **OpenSSF** — supply-chain practices (dependency scanning, secret scanning, SAST, SBOM).
 
 Describe these as engineering baselines/control mappings, not certifications, until formally obtained.
