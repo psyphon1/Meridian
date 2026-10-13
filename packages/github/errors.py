@@ -11,11 +11,15 @@ class GitHubError(MeridianError):
 
 
 class AuthenticationError(GitHubError):
-    """401 — token invalid or expired."""
+    """401 — token invalid or expired (after one refresh-and-retry)."""
+
+
+class AuthorizationError(GitHubError):
+    """403 that is *not* a rate limit — the App lacks permission for the resource."""
 
 
 class RateLimitError(GitHubError):
-    """429 or 403 with Retry-After — rate limited."""
+    """429, or 403 carrying Retry-After / ``x-ratelimit-remaining: 0`` — rate limited."""
 
     def __init__(self, message: str, retry_after: int = 0) -> None:
         super().__init__(message, status_code=429)
@@ -32,3 +36,7 @@ class ValidationError(GitHubError):
 
 class ServerError(GitHubError):
     """5xx — GitHub server error."""
+
+
+class TransportError(GitHubError):
+    """Network-level failure (timeout, connection reset) after retries."""

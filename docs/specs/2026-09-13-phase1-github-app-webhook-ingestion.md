@@ -285,7 +285,7 @@ The job message is a **reference**, not the full payload. The worker reads the f
 
 ## 5. Database Schema
 
-### 5.1 Tables (14 total: 13 core + 1 ingestion)
+### 5.1 Tables (15 total: 14 core + 1 ingestion)
 
 All tables use `TIMESTAMP WITH TIME ZONE` for timestamps. Primary keys are `BIGSERIAL` (BigInt). The `TimestampMixin` adds `created_at` and `updated_at` to applicable tables.
 
@@ -384,11 +384,14 @@ All tables use `TIMESTAMP WITH TIME ZONE` for timestamps. Primary keys are `BIGS
 | created_at, updated_at | TIMESTAMPTZ | mixin |
 | | | UNIQUE(repository_id, github_pr_number) |
 
+`pull_requests.head_sha` is the PR's *current* head (updated on each `synchronize`); `review_runs.head_sha` (below) is the immutable head a given run reviewed. Both are intentional — see ADR-006 D1 layer 3.
+
 #### `review_runs`
 | Column | Type | Notes |
 |---|---|---|
 | id | BIGSERIAL PK | |
 | pull_request_id | BIGINT FK→pull_requests | NOT NULL |
+| head_sha | VARCHAR(40) | NOT NULL (PR head this run reviewed; idempotency layer 3, ADR-006) |
 | status | VARCHAR(30) | NOT NULL (enum: RECEIVED→COMPLETED) |
 | risk_tier | VARCHAR(10) | nullable (LOW/MEDIUM/HIGH/CRITICAL) |
 | started_at | TIMESTAMPTZ | nullable |
@@ -483,7 +486,7 @@ This table serves **double duty** as both the idempotency key store and the tran
 | pull_requests | UNIQUE(repository_id, github_pr_number) |
 | repositories | UNIQUE(github_repo_id) |
 | installations | UNIQUE(github_installation_id) |
-| webhook_deliveries | UNIQUE(delivery_id), INDEX(enqueued) WHERE enqueued = false (outbox publisher hot path) |
+| webhook_deliveries | UNIQUE(delivery_id), INDEX `idx_webhook_enqueued_false`(enqueued) WHERE enqueued = false (outbox publisher hot path) |
 | review_runs | INDEX(pull_request_id), INDEX(status), INDEX(pull_request_id, head_sha) (second idempotency check — ADR-006) |
 | findings | INDEX(review_run_id), INDEX(severity) |
 | audit_events | UNIQUE(sequence_number), INDEX(event_type) |
@@ -493,7 +496,7 @@ This table serves **double duty** as both the idempotency key store and the tran
 
 - `db/migrations/` — Alembic environment configured for async SQLAlchemy
 - `db/migrations/env.py` — imports all models from `packages/models/` for autogenerate
-- Initial migration: `001_initial_schema.py` — creates all 14 tables + indexes + pgvector extension
+- Initial migration: `001_initial_schema.py` — creates all 15 tables + indexes + pgvector extension
 - `db/schema/` — kept as documentation reference (generated from migration, never hand-edited)
 
 ---
@@ -795,13 +798,15 @@ Using `pydantic-settings` with env vars from `.env.example`:
 
 | Setting | Env Var | Type | Default |
 |---|---|---|---|
-| app_env | `APP_ENV` | str | "development" |
+| app_env | `APP_ENV` | `Literal["development","staging","production","test"]` | "development" |
 | log_level | `LOG_LEVEL` | str | "INFO" |
 | github_app_id | `GITHUB_APP_ID` | int | required |
-| github_private_key | `GITHUB_PRIVATE_KEY` | str | required |
-| github_webhook_secret | `GITHUB_WEBHOOK_SECRET` | str | required |
+| github_private_key | `GITHUB_PRIVATE_KEY` | `SecretStr` | required |
+| github_webhook_secret | `GITHUB_WEBHOOK_SECRET` | `SecretStr` | required |
 | database_url | `DATABASE_URL` | str | required |
 | redis_url | `REDIS_URL` | str | "redis://localhost:6379/0" |
+
+`SecretStr` fields are masked in `repr()`/logs; read the value only at the point of use via `.get_secret_value()`. An `APP_ENV` outside the listed values fails validation at startup.
 
 ### 10.2 Stream Names (constants in `packages/config/redis.py`)
 
@@ -882,7 +887,7 @@ CONSUMER_GROUP = "meridian-workers"
 
 | ADR | Title | Decision |
 |---|---|---|
-| [ADR-006](../adr/adr-006-phase1-github-app-webhook-ingestion.md) | Phase 1 — GitHub App + webhook ingestion layer | Single consolidated ADR covering: webhook ingestion architecture (verify → outbox → ack within 10s; idempotency via delivery_id + advisory lock + second check on (pull_request_id, head_sha); thin route → service function with explicit transaction); transactional outbox pattern (webhook_deliveries doubles as outbox; publisher coroutine in worker polls SKIP LOCKED, XADD, marks enqueued; decouples Redis from 10s critical path); Redis Streams priority lanes (separate high/medium/low streams); database schema design (14 tables upfront; BIGSERIAL PKs; pgvector; audit sequence via PostgreSQL SEQUENCE); GitHub adapter pattern (JWT from App private key; L1 in-memory + L2 Redis shared token cache; rate-limit-aware httpx client); worker consumer design (XREADGROUP at-least-once; XAUTOCLAIM janitor; dead-letter after 3 attempts; XACK after DB commit); Stripe-style error envelope (type, code, param, request_id, doc_url; webhook error code taxonomy; updates CODE_STANDARDS.md §3); trace context propagation (W3C traceparent in JobMessage; OTel inject/extract across Redis Streams process boundary) |
+| [ADR-006](../adr/adr-006-phase1-github-app-webhook-ingestion.md) | Phase 1 — GitHub App + webhook ingestion layer | Single consolidated ADR covering: webhook ingestion architecture (verify → outbox → ack within 10s; idempotency via delivery_id + advisory lock + second check on (pull_request_id, head_sha); thin route → service function with explicit transaction); transactional outbox pattern (webhook_deliveries doubles as outbox; publisher coroutine in worker polls SKIP LOCKED, XADD, marks enqueued; decouples Redis from 10s critical path); Redis Streams priority lanes (separate high/medium/low streams); database schema design (15 tables upfront; BIGSERIAL PKs; pgvector; audit sequence via PostgreSQL SEQUENCE); GitHub adapter pattern (JWT from App private key; L1 in-memory + L2 Redis shared token cache; rate-limit-aware httpx client); worker consumer design (XREADGROUP at-least-once; XAUTOCLAIM janitor; dead-letter after 3 attempts; XACK after DB commit); Stripe-style error envelope (type, code, param, request_id, doc_url; webhook error code taxonomy; updates CODE_STANDARDS.md §3); trace context propagation (W3C traceparent in JobMessage; OTel inject/extract across Redis Streams process boundary) |
 
 ---
 
@@ -891,7 +896,7 @@ CONSUMER_GROUP = "meridian-workers"
 | Step | Component | Description |
 |---|---|---|
 | 1 | `packages/config/` | Settings, DB engine, Redis client — foundation everything depends on |
-| 2 | `packages/models/` | All 14 tables (SQLAlchemy 2.0, including outbox columns on webhook_deliveries) + Pydantic schemas + enums |
+| 2 | `packages/models/` | All 15 tables (SQLAlchemy 2.0, including outbox columns on webhook_deliveries) + Pydantic schemas + enums |
 | 3 | `db/migrations/` | Alembic setup + initial migration creating all tables + pgvector extension + audit_events_seq |
 | 4 | `packages/observability/` | structlog + OTel setup (incl. traceparent inject/extract helpers) |
 | 5 | `packages/security/` | HMAC verification + advisory lock helpers (hashtextextended key derivation) |

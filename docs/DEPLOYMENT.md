@@ -17,7 +17,7 @@ Staging must be **production-shaped** (same container images, same K8s overlays 
 
 ## 2. Build & Deploy Pipeline
 
-1. PR → CI: lint, typecheck, unit + integration tests, SAST (CodeQL), secret scan, SBOM generation (OpenSSF-aligned).
+1. PR → local checks (no CI, ADR-007): lint, typecheck, unit + integration tests; SAST (CodeQL), secret scan, SBOM generation run manually before release (OpenSSF-aligned).
 2. Merge to `main` → build immutable, digest-pinned container images (one image per app; no `latest`).
 3. Deploy to staging automatically; run evals + regression benchmark (`evals/`) as a gate.
 4. Promote the **same image digests** to production (never rebuild) — deployment is promotion, not compilation.

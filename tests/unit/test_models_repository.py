@@ -47,8 +47,18 @@ def test_code_symbol_columns():
         "start_line",
         "end_line",
         "signature",
+        "embedding",
         "created_at",
     }
+
+
+def test_code_symbol_embedding_is_pgvector_1536():
+    from pgvector.sqlalchemy import Vector
+
+    col = CodeSymbol.__table__.c.embedding
+    assert isinstance(col.type, Vector)
+    assert col.type.dim == 1536
+    assert col.nullable is True
 
 
 def test_github_repo_id_unique():
