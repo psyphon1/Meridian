@@ -1,5 +1,7 @@
 from functools import lru_cache
+from typing import Literal
 
+from pydantic import SecretStr
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -8,12 +10,12 @@ class Settings(BaseSettings):
 
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
-    app_env: str = "development"
+    app_env: Literal["development", "staging", "production", "test"] = "development"
     log_level: str = "INFO"
 
     github_app_id: int
-    github_private_key: str
-    github_webhook_secret: str
+    github_private_key: SecretStr
+    github_webhook_secret: SecretStr
 
     database_url: str
     redis_url: str = "redis://localhost:6379/0"

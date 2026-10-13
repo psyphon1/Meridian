@@ -1,8 +1,28 @@
 # Meridian Pull Request
 
-## Summary
+## What
 
-<!-- What does this PR change and why? Link the issue / ADR if applicable. -->
+<!-- One or two sentences: exactly what this PR changes. List files/packages touched. No "why" here. -->
+
+## Why
+
+<!-- The motivation: which problem, issue, ADR, or plan task this solves. Link the issue / ADR / implementation plan if applicable. -->
+
+## When
+
+<!-- Timeline context: e.g. which milestone/phase this lands, target release/tag, or merge order for stacked PRs (base PR must merge first). -->
+
+## How
+
+<!-- The approach: key design decisions, patterns used, and how it was verified (commands run, test counts). Cite files, commits, tests, and docs. -->
+
+## Impact
+
+<!-- Who/what is affected: services, schemas, APIs, docs, CI. Note anything NOT affected. -->
+
+## Rollback
+
+<!-- How to revert safely: single revert commit? migration downgrade needed? feature flag? -->
 
 ## Type
 

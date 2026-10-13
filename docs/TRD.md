@@ -24,7 +24,7 @@ Full detail in [`design/Meridian_TRD.md`](design/Meridian_TRD.md). This is the w
 | Execution | Firecracker/gVisor path, pre-warmed pool | Per-tenant isolated, deny-all egress |
 | Secrets | AWS/GCP KMS or Vault | Envelope-encrypted user keys |
 | Observability | OpenTelemetry + Langfuse | Redacted before export |
-| Infra | Docker, Kubernetes, Terraform, GitHub Actions | Reproducible deploy |
+| Infra | Docker, Kubernetes, Terraform | Reproducible deploy |
 
 ## 2. Performance / SLA Requirements
 

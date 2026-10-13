@@ -1,4 +1,4 @@
-"""Initial Meridian schema — all 14 tables, indexes, audit sequence.
+"""Initial Meridian schema — pgvector extension, all 15 tables, indexes, audit sequence.
 
 Revision ID: 001
 Revises:
@@ -7,6 +7,7 @@ Create Date: 2026-09-13
 
 import sqlalchemy as sa
 from alembic import op
+from pgvector.sqlalchemy import Vector
 from sqlalchemy.dialects import postgresql
 
 revision = "001"
@@ -16,6 +17,9 @@ depends_on = None
 
 
 def upgrade() -> None:
+    # pgvector (ADR-002): required for code_symbols.embedding. Idempotent.
+    op.execute("CREATE EXTENSION IF NOT EXISTS vector")
+
     # --- identity (users) ---
     op.create_table(
         "users",
@@ -143,7 +147,7 @@ def upgrade() -> None:
         sa.Column("start_line", sa.Integer(), nullable=False),
         sa.Column("end_line", sa.Integer(), nullable=False),
         sa.Column("signature", sa.Text(), nullable=True),
-        sa.Column("embedding", postgresql.ARRAY(sa.Float()), nullable=True),
+        sa.Column("embedding", Vector(1536), nullable=True),
         sa.Column(
             "created_at", sa.DateTime(timezone=True), server_default=sa.func.now(), nullable=False
         ),
@@ -184,6 +188,7 @@ def upgrade() -> None:
             "pull_request_id", sa.BigInteger(), sa.ForeignKey("pull_requests.id"), nullable=False
         ),
         sa.Column("status", sa.String(30), nullable=False, server_default="RECEIVED"),
+        sa.Column("head_sha", sa.String(40), nullable=False),
         sa.Column("risk_tier", sa.String(10), nullable=True, server_default="MEDIUM"),
         sa.Column("started_at", sa.DateTime(timezone=True), nullable=True),
         sa.Column("completed_at", sa.DateTime(timezone=True), nullable=True),
@@ -196,7 +201,10 @@ def upgrade() -> None:
         ),
         sa.PrimaryKeyConstraint("id"),
     )
+    op.create_index("ix_review_runs_pull_request", "review_runs", ["pull_request_id"])
     op.create_index("ix_review_runs_status", "review_runs", ["status"])
+    # ADR-006 idempotency layer 3: look up an existing run for (PR, head SHA).
+    op.create_index("ix_review_runs_pr_head_sha", "review_runs", ["pull_request_id", "head_sha"])
 
     # --- review (evidence) ---
     op.create_table(
@@ -234,7 +242,8 @@ def upgrade() -> None:
         ),
         sa.PrimaryKeyConstraint("id"),
     )
-    op.create_index("ix_findings_run_severity", "findings", ["review_run_id", "severity"])
+    op.create_index("ix_findings_review_run", "findings", ["review_run_id"])
+    op.create_index("ix_findings_severity", "findings", ["severity"])
 
     # --- review (tool_runs) ---
     op.create_table(
@@ -312,10 +321,18 @@ def upgrade() -> None:
         sa.PrimaryKeyConstraint("id"),
         sa.UniqueConstraint("delivery_id"),
     )
-    op.create_index("ix_webhook_deliveries_enqueued", "webhook_deliveries", ["enqueued"])
+    # Outbox publisher hot path (spec §5.2): partial index over unpublished rows only.
+    op.create_index(
+        "idx_webhook_enqueued_false",
+        "webhook_deliveries",
+        ["enqueued"],
+        postgresql_where=sa.text("enqueued = false"),
+    )
 
 
 def downgrade() -> None:
+    # The `vector` extension is intentionally left installed: it is database-wide and
+    # dropping it could affect objects this migration does not own.
     op.execute("DROP SEQUENCE IF EXISTS audit_events_seq")
     op.drop_table("webhook_deliveries")
     op.drop_table("audit_events")

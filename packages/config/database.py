@@ -10,12 +10,16 @@ from sqlalchemy.ext.asyncio import (
 from packages.config.settings import Settings
 
 
+def create_db_engine_from_url(url: str, *, echo: bool = False) -> AsyncEngine:
+    """Create an async SQLAlchemy engine from an explicit URL (tools, migrations, tests)."""
+    return create_async_engine(url, echo=echo, pool_pre_ping=True)
+
+
 def create_db_engine(settings: Settings) -> AsyncEngine:
     """Create an async SQLAlchemy engine from settings."""
-    return create_async_engine(
+    return create_db_engine_from_url(
         settings.database_url,
         echo=(settings.app_env == "development"),
-        pool_pre_ping=True,
     )
 
 

@@ -37,3 +37,19 @@ def test_enums_have_expected_members():
     assert InstallationStatus.UNINSTALLED == "uninstalled"
     assert PRState.OPEN == "open"
     assert PRState.CLOSED == "closed"
+
+
+def test_all_model_datetime_columns_are_timezone_aware():
+    import packages.models.audit
+    import packages.models.identity
+    import packages.models.repository
+    import packages.models.review  # noqa: F401
+    from sqlalchemy import DateTime
+
+    naive = [
+        f"{t.name}.{c.name}"
+        for t in Base.metadata.sorted_tables
+        for c in t.columns
+        if isinstance(c.type, DateTime) and not c.type.timezone
+    ]
+    assert naive == []

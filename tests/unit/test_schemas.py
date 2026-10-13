@@ -70,3 +70,24 @@ def test_pull_request_payload_parses_action():
     assert p.action == "opened"
     assert p.installation.id == 12345
     assert p.pull_request.head.sha == "abc123"
+
+
+def test_job_message_rejects_unknown_priority():
+    import pytest
+    from pydantic import ValidationError
+
+    with pytest.raises(ValidationError):
+        JobMessage(
+            delivery_id="d",
+            event="pull_request",
+            action="opened",
+            installation_id=1,
+            repository_id=2,
+            repository_full_name="o/r",
+            pr_number=1,
+            pr_title="t",
+            head_sha="h",
+            base_sha="b",
+            priority="urgent",  # type: ignore[arg-type]
+            enqueued_at="2026-09-13T12:00:00Z",
+        )
