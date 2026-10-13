@@ -613,6 +613,10 @@ Leftovers to clean up: git worktrees under `/tmp/wt/pr1`–`pr6`, helper files i
 
 ## Entry 22 — 2026-10-12: PR #3 review fixes (`feature/obs_sec`)
 
+---
+
+## Entry 23 — 2026-10-12: PR #3 review fixes (`feature/obs_sec`)
+
 1. `packages/security/hmac_verify.py`: compare as bytes (`.encode()` both sides) so non-ASCII/lone-surrogate headers return `False` instead of raising `TypeError`; +6 tests (non-ASCII, surrogate, empty header, empty body ×2, wrong prefix).
 2. `packages/security/advisory_lock.py`: follows ADR-006 (Idempotency) — `compute_lock_key(...) -> str` builds `"{repo_id}:{pr_number}:{head_sha}"`; `acquire_advisory_lock(session, key: str)` executes `SELECT pg_advisory_xact_lock(hashtextextended(:key, 0))`. Removed false "SHA-256 … (ADR-006)" docstring citation. Golden-value + mocked-`AsyncSession` SQL/param tests.
 3. `packages/observability/tracing.py`: added `extract_context(carrier) -> Context` (`opentelemetry.propagate.extract`) and `get_tracer`; `extract_traceparent` kept. In-memory-exporter test: inject → extract → child span shares trace id and parent span id.
@@ -620,3 +624,22 @@ Leftovers to clean up: git worktrees under `/tmp/wt/pr1`–`pr6`, helper files i
 5. Tautological tests in `test_logging.py`/`test_tracing.py` replaced with behavioral assertions.
 6. CI: `mypy apps packages services` failed because `apps/` does not exist on this branch; `.github/workflows/ci.yml` now type-checks only existing source dirs (`ci: run mypy only on source directories that exist`).
 7. Results: ruff check ✅, ruff format --check ✅, mypy `packages` ✅ (18 files), `pytest --cov` → 75 passed, 1 skipped (integration needs Postgres); `tests/unit` → 71 passed.
+
+
+---
+
+## Entry 24 — 2026-10-12: PR #4 review fixes (orchestration + GitHub adapter)
+
+**Performed by:** Kiro (agent) with Chinmay Duse (psyphon1)
+
+### Done
+
+1. `packages/orchestration/consumer.py`: handles real `XREADGROUP` replies (RESP2 list / RESP3 dict, str or bytes — verified against Redis 8.10.2 with redis-py 5.3.1); `XACK` only after `on_job` succeeds (ADR-006 D6); failed/malformed entries stay pending for the janitor; only `BUSYGROUP` is swallowed; non-blocking priority pass then one blocking read across all lanes; `running()` for graceful stop.
+2. `packages/orchestration/ingestion.py` + `errors.py`: per-event payload routing, `WebhookPayloadError` (`webhook.payload_invalid`), layer-3 `(PR, head SHA)` RECEIVED-run check, OTel span + structured logs, single JSON parse.
+3. `packages/github/`: authenticated client (installation token / App JWT), real token-mint fetcher, 401 refresh-and-retry once, 403 split (`RateLimitError` vs `AuthorizationError`), Retry-After seconds/HTTP-date, backoff + jitter (max 3), typed models (`types.py`), `token_cache` with Protocol-injected store and equal L1/L2 expiry.
+4. Fixed a latent bug: `generate_app_jwt` passed an int `iss`, which PyJWT >= 2.10 rejects (`TypeError`); now `str(app_id)`.
+
+### Lessons / gotchas
+
+- Mocked-`jwt.encode` tests hid the `iss` bug; added an unmocked RSA round-trip test.
+- structlog's `event` kwarg collides with the log message positional; use `webhook_event`.

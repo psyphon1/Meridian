@@ -25,6 +25,8 @@ Phase 1 delivers the foundation of Meridian: a GitHub App that receives webhook 
 
 **Idempotency:** Three layers — (1) `webhook_deliveries.delivery_id` unique constraint, (2) advisory lock via `pg_advisory_xact_lock(hashtextextended(repo_id || ':' || pr_number || ':' || head_sha, 0))`, (3) second check on `review_runs(pull_request_id, head_sha)` for an existing RECEIVED run (prevents duplicate review runs on GitHub redelivery with a new delivery_id). `review_runs.head_sha` is the immutable head SHA a run reviewed (indexed with `pull_request_id`); `pull_requests.head_sha` is the PR's current head and changes on every push — both columns exist by design.
 
+**Amendment (2026-10-13, Accepted):** `ingest_webhook` does **not** open `session.begin()` itself; it runs inside the caller's transaction, and the route/worker owns `async with session.begin():`. Rationale: `pg_advisory_xact_lock` is released at the end of the *outermost* transaction, so the lock must span the delivery-row insert and the commit performed by the caller; a nested/self-managed transaction would either fail on an already-begun session or release the lock before the caller's commit. Calling `ingest_webhook` outside a transaction releases the lock right after the statement, so callers must always wrap it. The rest of D1 (thin route, raw body, `IngestResult` mapping, three idempotency layers) is unchanged.
+
 ---
 
 ## D2 — Transactional Outbox Pattern
