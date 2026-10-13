@@ -23,7 +23,7 @@ meridian/
 ├── evals/           # datasets, cases, graders, regression, reports
 ├── tests/           # unit, integration, security, e2e, fixtures
 ├── scripts/         # bootstrap, indexing, evaluation, migrations, development
-└── .github/         # workflows, ISSUE_TEMPLATE, PR template, dependabot
+└── .github/         # ISSUE_TEMPLATE, PR template, CODEOWNERS
 ```
 
 ## Dependency Rules

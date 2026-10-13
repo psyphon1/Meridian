@@ -793,13 +793,15 @@ Using `pydantic-settings` with env vars from `.env.example`:
 
 | Setting | Env Var | Type | Default |
 |---|---|---|---|
-| app_env | `APP_ENV` | str | "development" |
+| app_env | `APP_ENV` | `Literal["development","staging","production","test"]` | "development" |
 | log_level | `LOG_LEVEL` | str | "INFO" |
 | github_app_id | `GITHUB_APP_ID` | int | required |
-| github_private_key | `GITHUB_PRIVATE_KEY` | str | required |
-| github_webhook_secret | `GITHUB_WEBHOOK_SECRET` | str | required |
+| github_private_key | `GITHUB_PRIVATE_KEY` | `SecretStr` | required |
+| github_webhook_secret | `GITHUB_WEBHOOK_SECRET` | `SecretStr` | required |
 | database_url | `DATABASE_URL` | str | required |
 | redis_url | `REDIS_URL` | str | "redis://localhost:6379/0" |
+
+`SecretStr` fields are masked in `repr()`/logs; read the value only at the point of use via `.get_secret_value()`. An `APP_ENV` outside the listed values fails validation at startup.
 
 ### 10.2 Stream Names (constants in `packages/config/redis.py`)
 
