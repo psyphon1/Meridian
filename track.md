@@ -671,3 +671,29 @@ Leftovers to clean up: git worktrees under `/tmp/wt/pr1`–`pr6`, helper files i
 ### Verification
 
 - Live Redis 8.10 and Postgres 18 (local) used for integration + e2e runs; see PR #6 for CI.
+
+---
+
+## Entry 27 — 2026-10-13: Open PRs reviewed, fixed, and merged; Actions runs purged
+
+**Performed by:** Kiro (agent) with Chinmay Duse (psyphon1)
+
+### Done
+
+1. Deleted all 86 old GitHub Actions workflow runs.
+2. Reviewed PRs #1–#8 with 5 parallel read-only reviewer agents; fix agents then updated #2, #4 and #6. Results are in each PR body.
+3. Merged to `main` (merge commits, order #7, #8, #1, #2, #3, #4, #5, #6). The stack was merged locally with `git merge --no-ff` because GitHub's stacked-PR feature rejected API merges. PRs #2–#6 were then closed with a comment, and the six `feature/*` branches were deleted.
+4. Integration fixes found while merging the stack:
+   - #5: `SecretStr` settings (from #1) were passed as `str`; fixed with `.get_secret_value()` in `apps/api/main.py` and `apps/api/routers/webhooks.py`.
+   - #6: integration conftest now runs `CREATE EXTENSION IF NOT EXISTS vector` (pgvector column from #2); the ingestion test seed sets `review_runs.head_sha`.
+5. Verification on merged `main` (7d92bfe) with a throwaway Postgres 18 + pgvector and Redis: `ruff check` pass, `ruff format --check` pass, `mypy apps packages` pass, `pytest` 327 passed, 0 skipped. Python 3.14 venv (project requires >=3.12; 3.12 not tested).
+
+### Decisions recorded
+
+- ADR-006 amendments: `ingest_webhook` runs in the caller's transaction (D1); `processed=true` means "consumed and acknowledged" in Phase 1; `review_runs.head_sha` and `pull_requests.head_sha` both exist; 15 tables.
+- ADR-007: no CI, so local checks are the only gate.
+
+### Not verified
+
+- docker-compose `pgvector/pgvector:pg16` image (tested on local PG 18).
+- Python 3.12 specifically.
