@@ -148,7 +148,7 @@ async def _seed_received_run(factory, sha: str, status: ReviewStatus = ReviewSta
         )
         s.add(pr)
         await s.flush()
-        s.add(ReviewRun(pull_request_id=pr.id, status=status))
+        s.add(ReviewRun(pull_request_id=pr.id, head_sha=sha, status=status))
 
 
 async def test_layer3_duplicate_pr_sha_with_new_delivery_id_is_replayed(factory):

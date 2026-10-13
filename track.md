@@ -637,6 +637,10 @@ Leftovers to clean up: git worktrees under `/tmp/wt/pr1`–`pr6`, helper files i
 
 ## Entry 24 — 2026-10-12: PR #4 review fixes (orchestration + GitHub adapter)
 
+---
+
+## Entry 26 — 2026-10-12: PR #6 review fixes (worker shutdown, ack, janitor, outbox isolation)
+
 **Performed by:** Kiro (agent) with Chinmay Duse (psyphon1)
 
 ### Done
@@ -650,3 +654,20 @@ Leftovers to clean up: git worktrees under `/tmp/wt/pr1`–`pr6`, helper files i
 
 - Mocked-`jwt.encode` tests hid the `iss` bug; added an unmocked RSA round-trip test.
 - structlog's `event` kwarg collides with the log message positional; use `webhook_event`.
+
+1. **Graceful shutdown** (`apps/worker/main.py`, new `apps/worker/runtime.py`): `loop.add_signal_handler` for SIGTERM/SIGINT sets a shared `asyncio.Event`; consumer, outbox publisher and janitor loops wait with `wait_for(stop.wait(), timeout)` instead of bare sleeps; drain with a 30s timeout then cancel; exit code 0 (1 if a loop crashed). `global _running` removed.
+2. **XACK after commit** (`apps/worker/consumer.py`): the worker now owns its read loop (`packages.orchestration.consumer.process_message` does not expose entry ids, so it cannot ack). It acks only after `process_job` committed; failures stay pending, are retried via a backlog pass over the consumer's own PEL, and are dead-lettered after 3 deliveries. XACK is idempotent, so a future ack inside `process_message` is harmless.
+3. **Janitor** (new `packages/orchestration/janitor.py`; `apps/worker/janitor.py` is a thin loop): `dead_letter_exhausted` (XPENDING counts ≥ 3 → `meridian:reviews:deadletter` + XACK, run *before* reclaim because XAUTOCLAIM bumps the counter), `reclaim_stalled` (XAUTOCLAIM to the live consumer, list/tuple and 2/3-element replies handled), `trim_streams` (MINID bounded by oldest pending id and first undelivered id — never drops unacked work).
+4. **Outbox publisher**: per-row isolation (invalid row → quarantined in memory + logged with `delivery_id`; XADD failure → row retried next poll; successes never rolled back for either), `title: null` / missing sections tolerated, loop backs off exponentially on errors.
+5. **`on_job` (`process_job`)**: continues the trace from `JobMessage.traceparent` (child span `worker.process_job`), logs `job_processed` with `delivery_id`, `stream`, `duration_ms`; errors are contained so one failing job cannot stop the loop.
+6. **Tests**: fakes (`tests/fakes.py`), unit tests for every worker module + janitor package, integration tests against a real Redis (8 tests), and a true e2e (API → outbox → publisher → Redis → consumer → processed, needs PG + Redis, skips cleanly otherwise; renamed to `test_webhook_to_processed.py`). Fixed `tests/fixtures/db.py` (passed a URL string to `create_db_engine(settings)`) and made `redis_client` skip when Redis is unreachable.
+
+### Deviations / owner notes
+
+- **Spec §8 full upserts are NOT implemented** (installation, repository, pull_request, review_run, audit_event). Per the implementation plan `process_job` only marks `webhook_deliveries.processed=true`; the `job_processed` log therefore has no `run_id`.
+- API→worker trace linkage needs the API `traceparent` persisted on `webhook_deliveries` (schema change → migration/ADR). Until then the job trace is rooted at the worker's `outbox.publish` span.
+- A durable per-row failure/attempt marker for poison outbox rows likewise needs a column; today quarantine is in-memory (cleared on restart).
+
+### Verification
+
+- Live Redis 8.10 and Postgres 18 (local) used for integration + e2e runs; see PR #6 for CI.

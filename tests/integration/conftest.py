@@ -53,6 +53,7 @@ async def pg_engine(pg_url: str) -> AsyncIterator[AsyncEngine]:
         pytest.skip(f"PostgreSQL not reachable for integration test: {exc}")
     engine = create_async_engine(pg_url.rsplit("/", 1)[0] + f"/{name}")
     async with engine.begin() as conn:
+        await conn.execute(text("CREATE EXTENSION IF NOT EXISTS vector"))
         await conn.run_sync(Base.metadata.create_all)
     yield engine
     await engine.dispose()
