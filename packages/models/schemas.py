@@ -1,6 +1,7 @@
 """Pydantic schemas — JobMessage, IngestResult, webhook payload models (Task 9)."""
 
 from dataclasses import dataclass
+from typing import Literal
 
 from pydantic import BaseModel, Field
 
@@ -21,7 +22,7 @@ class JobMessage(BaseModel):
     pr_title: str
     head_sha: str
     base_sha: str
-    priority: str = "medium"
+    priority: Literal["high", "medium", "low"] = "medium"
     traceparent: str | None = None
     enqueued_at: str
 
