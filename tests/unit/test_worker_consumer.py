@@ -270,3 +270,24 @@ async def test_loop_exits_immediately_when_stop_already_set() -> None:
     stop = asyncio.Event()
     stop.set()
     await asyncio.wait_for(c.run_consumer_loop(r, None, "w1", stop), 2)  # type: ignore[arg-type]
+
+
+async def test_job_failure_logs_only_error_type_without_traceback_or_message(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    r = await _redis_with_groups()
+    entry_id, fields = await _entry(r, STREAM_MEDIUM, _job("dlv-9").model_dump_json())
+    await r.xreadgroup(CONSUMER_GROUP, "w1", {STREAM_MEDIUM: ">"})
+
+    async def boom(job: JobMessage, sf: Any, stream: str) -> None:
+        raise RuntimeError("secret-payload-content")
+
+    monkeypatch.setattr(c, "process_job", boom)
+    assert await c.handle_entry(r, None, STREAM_MEDIUM, entry_id, fields) is False  # type: ignore[arg-type]
+    captured = capsys.readouterr()
+    out = re.sub(r"\x1b\[[0-9;]*m", "", captured.out + captured.err)
+    assert "job_failed" in out
+    assert "delivery_id=dlv-9" in out
+    assert "error_type=RuntimeError" in out
+    assert "secret-payload-content" not in out
+    assert "Traceback" not in out

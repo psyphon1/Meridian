@@ -87,6 +87,10 @@ async def process_job(
     Phase 1 scope (deliberately minimal): load the ``webhook_deliveries`` row by
     ``delivery_id`` and mark it processed. The spec §8 upserts (installation,
     repository, pull_request, review_run, audit_event) are NOT performed yet.
+
+    Accepted amendment (ADR-006, 2026-10-13): in Phase 1 ``processed=true`` means
+    "worker consumed and acknowledged the job". It does NOT imply a ``review_run``
+    exists (that arrives in Phase 2); downstream code must not read it that way.
     """
     started = time.perf_counter()
     parent = propagate.extract({"traceparent": job.traceparent}) if job.traceparent else None
@@ -144,9 +148,17 @@ async def handle_entry(
 
     try:
         await process_job(job, session_factory, stream)
-    except Exception:
+    except Exception as exc:
         # A failing job must not terminate the loop; leave it pending (no XACK).
-        log.exception("job_failed", delivery_id=job.delivery_id, stream=stream, entry_id=entry_id)
+        # Log only the exception type: messages/tracebacks may embed payload or DB
+        # content (consistent with the API's error logging).
+        log.error(
+            "job_failed",
+            delivery_id=job.delivery_id,
+            stream=stream,
+            entry_id=entry_id,
+            error_type=type(exc).__name__,
+        )
         return False
 
     try:

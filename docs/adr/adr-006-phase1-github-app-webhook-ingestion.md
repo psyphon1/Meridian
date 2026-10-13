@@ -89,6 +89,10 @@ Phase 1 delivers the foundation of Meridian: a GitHub App that receives webhook 
 
 ---
 
+## Amendment (2026-10-13) — Phase 1 meaning of `webhook_deliveries.processed`
+
+**Status:** Accepted. The spec (§8, schema) defines `processed` as "set true by worker after review_run created". In Phase 1 the worker does not yet create a `review_run`, upserts, or audit event; those arrive in Phase 2. Until then `processed=true` means only "worker consumed and acknowledged the job" (set in the same DB transaction that precedes `XACK`). Downstream code MUST NOT read it as "a `review_run` exists". Phase 2 restores the spec semantics by setting it in the transaction that creates the `review_run`.
+
 ## Consequences
 
 - **Positive:** Redis is fully decoupled from webhook ingestion; no phantom jobs; at-least-once delivery with idempotent consumers; end-to-end traces; industry-standard error responses.

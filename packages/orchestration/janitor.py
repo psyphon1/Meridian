@@ -11,7 +11,7 @@ Three independent operations, each safe to run concurrently from several workers
   that is still pending (unacked) or has not been delivered yet.
 
 All functions are verified against a real Redis (see
-``tests/integration/test_janitor_redis.py``); ``redis-py`` returns lists *or*
+``tests/integration/test_worker_redis.py``); ``redis-py`` returns lists *or*
 tuples and 2- *or* 3-element ``XAUTOCLAIM`` replies depending on server
 version and protocol, which :func:`parse_xautoclaim` normalises.
 """

@@ -3,7 +3,7 @@
 ``FakeRedis`` implements just the stream commands the worker uses, with Redis'
 semantics for delivery counters (``XREADGROUP``-history and ``XAUTOCLAIM`` both
 increment) so unit tests exercise the real decision logic. Real-server behaviour
-is covered by ``tests/integration/test_janitor_redis.py``.
+is covered by ``tests/integration/test_worker_redis.py``.
 """
 
 import asyncio
